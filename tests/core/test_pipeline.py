@@ -93,7 +93,16 @@ def test_repeats_aggregate_with_std(tmp_path):
 
 def test_stub_controller_gives_friendly_error(tmp_path, capsys):
     code = run.main(
-        ["--controller", "hpa", "--scenario", "spike", "--results-dir", str(tmp_path)]
+        [
+            "--controller",
+            "scheduled",
+            "--schedule",
+            "26:17",
+            "--scenario",
+            "spike",
+            "--results-dir",
+            str(tmp_path),
+        ]
     )
     assert code == 2
     assert "isn't implemented yet" in capsys.readouterr().err

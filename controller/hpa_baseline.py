@@ -1,8 +1,7 @@
 """HPA baseline: Kubernetes' Horizontal Pod Autoscaler replica formula.
 
->>> STUB -- Pair A implements this at Camp QMIND. <<<
-Definition of done: `pytest -m todo tests/todo/test_hpa.py` passes, and
-`python -m experiments.run --controller hpa --scenario spike` runs.
+Tests: tests/core/test_hpa.py. Run with
+`python -m experiments.run --controller hpa --scenario spike`.
 
 This is our primary baseline, so it should behave like the real HPA as closely
 as our simple simulator allows (docs: kubernetes.io/docs/tasks/run-application/
@@ -86,8 +85,8 @@ class HPAController(Controller):
 
         if abs(ratio - 1.0) <= self.tolerance:
             recommendation = current
-        else: 
-            recommendation = math.ceil(current * obs.cpu_pct / self.target_cpu_pct)
+        else:
+            recommendation = math.ceil(current * ratio)
         self.recent_recommendations.append(recommendation)
         target = max(self.recent_recommendations)
 

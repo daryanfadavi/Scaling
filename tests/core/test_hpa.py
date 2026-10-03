@@ -1,15 +1,12 @@
-"""Spec for controller/hpa_baseline.py (Pair A).
+"""Tests for controller/hpa_baseline.py (Pair A's HPA baseline).
 
-Run with:  pytest -m todo tests/todo/test_hpa.py
-All of these should pass once HPAController.decide is implemented.
+Run with:  pytest tests/core/test_hpa.py
 """
 
 import pytest
 
 from controller.hpa_baseline import HPAController
 from tests.helpers import make_obs
-
-pytestmark = pytest.mark.todo
 
 
 def decide(controller, replicas, cpu, tick=0):

@@ -76,7 +76,7 @@ Each pair's task has a spec in `tests/todo/`. **Your goal is to make it green:**
 
 ```bash
 pytest -m todo                       # all the todo specs
-pytest -m todo tests/todo/test_hpa.py
+pytest -m todo tests/todo/test_llm_parser.py
 ```
 
 ### Pair A: HPA baseline (`controller/hpa_baseline.py`)
@@ -84,7 +84,7 @@ pytest -m todo tests/todo/test_hpa.py
 Implement `HPAController.decide` (and `reset`). The docstring has the formula, the tolerance band, the stabilization window and worked examples.
 
 **Done when:**
-- [ ] `pytest -m todo tests/todo/test_hpa.py` passes
+- [x] `pytest tests/core/test_hpa.py` passes (done; moved from `tests/todo/` so it always runs)
 - [ ] `python -m experiments.run --controller hpa --scenario <s>` runs for all three scenarios
 - [ ] You can explain, from the plot, why HPA has SLA violations on `spike` but not (much) on `ramp`
 
