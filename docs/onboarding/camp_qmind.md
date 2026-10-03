@@ -127,6 +127,21 @@ Useful flags:
 
 Every LLM response is cached in `experiments/cache/` (gitignored), keyed on model + prompt + repeat number.
 
+### Running through OpenRouter (other models)
+
+The LLM controllers use the Anthropic API by default. To try a model from another vendor, put `OPENROUTER_API_KEY` in `.env` and add `--provider openrouter`:
+
+```bash
+python scripts/check_api.py --provider openrouter --model meta-llama/llama-3.3-70b-instruct
+python -m experiments.run --controller llm_context --scenario spike_with_warning \
+    --provider openrouter --model meta-llama/llama-3.3-70b-instruct --openrouter-upstream Fireworks
+```
+
+- `--model`: the OpenRouter model id. There is no default; set `OPENROUTER_MODEL` in `.env` to avoid typing it.
+- `--openrouter-upstream`: OpenRouter can serve the same model from different hosting providers on different calls. Pin one (or set `OPENROUTER_UPSTREAM`) so runs are reproducible; you get a warning if you don't.
+- The leaderboard label defaults to `<controller>-<model>`, so different models don't overwrite each other's results.
+- `llm_latency_s` includes the extra hop through OpenRouter, so don't compare it with direct Anthropic runs.
+
 ## Stretch goals
 
 - **Repeats and seeds:** run `--repeats 3` for the LLM variants and `--seed 0/1/2` for everything. Is the LLM's advantage bigger than its run-to-run variance?
