@@ -41,7 +41,7 @@ the environment's own guardrails (min/max replicas, max +/-4 per tick).
 """
 
 from __future__ import annotations
-
+import json
 from dataclasses import dataclass, replace
 
 from controller.base import Controller, Decision, Observation
@@ -107,9 +107,34 @@ def build_prompt(obs: Observation) -> str:
       * Never include anything that's not in `obs` (scenario names, the future
         load, ...). That would invalidate the experiment -- see AGENTS.md.
     """
-    raise NotImplementedError(
-        "build_prompt is a stub -- see controller/llm_controller.py"
-    )
+    lines = [
+        f"Time: t={obs.time_s:.0f}s (tick {obs.tick})",
+        f"Replicas: {obs.replicas_ready} ready, {obs.replicas_pending} starting "
+        f"(total {obs.replicas_total}; min {obs.min_replicas}, max {obs.max_replicas})",
+        f"CPU: {obs.cpu_pct:.0f}%   Request rate: {obs.request_rate:.0f} req/s   "
+        f"Latency: {obs.latency_ms:.0f} ms (SLA limit 300 ms)   Backlog: {obs.backlog:.0f} requests",
+    ]
+    if obs.history:
+        lines.append("")
+        lines.append("Recent history (oldest first):")
+        lines.append("tick | ready | starting | cpu% | req/s | latency_ms | backlog | target")
+        for h in obs.history:
+            lines.append(
+                f"{h.get('tick', '?')} | {h.get('replicas_ready', '?')} | "
+                f"{h.get('replicas_pending', '?')} | {h.get('cpu_pct', '?')} | "
+                f"{h.get('request_rate', '?')} | {h.get('latency_ms', '?')} | "
+                f"{h.get('backlog', '?')} | {h.get('applied_target', '?')}"
+            )
+
+    if obs.operator_notes:
+        lines.append("")
+        lines.append("Operator notes:")
+        for note in obs.operator_notes:
+            lines.append(f"- {note}")
+
+    lines.append("")
+    lines.append("Decide this tick's action. Reply with only the JSON object.")
+    return "\n".join(lines)
 
 
 def parse_response(text: str) -> ParsedAction:
@@ -128,9 +153,52 @@ def parse_response(text: str) -> ParsedAction:
     Hints: `import json`; json.loads raises json.JSONDecodeError on bad input.
     Note that in Python `isinstance(True, int)` is True -- don't accept booleans.
     """
-    raise NotImplementedError(
-        "parse_response is a stub -- see controller/llm_controller.py"
-    )
+    
+    if not isinstance(text, str) or not text.strip():
+        return fallback("empty response")
+
+    # 1. Find the JSON object. Try decoding at every '{' and keep the LAST
+    #    object that has an "action" key. This handles ```json fences, a
+    #    sentence before/after, and models that "think out loud" with
+    #    braces before giving the real answer.
+    decoder = json.JSONDecoder()
+    data = None
+    saw_json = False
+    pos = text.find("{")
+    while pos != -1:
+        try:
+            obj, _ = decoder.raw_decode(text, pos)
+            saw_json = True
+            if isinstance(obj, dict) and "action" in obj:
+                data = obj
+        except ValueError:
+            pass
+        pos = text.find("{", pos + 1)
+    if data is None:
+        return fallback("no JSON object with an action" if saw_json else "no valid JSON object found")
+
+    # 2. Check the action.
+    action = data.get("action")
+    if action not in VALID_ACTIONS:
+        return fallback(f"unknown or missing action: {action!r}")
+
+    reason = data.get("reason", "")
+    reason = reason if isinstance(reason, str) else str(reason)
+
+    # 3. NO_CHANGE always means amount 0, whatever the model sent.
+    if action == "NO_CHANGE":
+        return ParsedAction(action="NO_CHANGE", amount=0, reason=reason)
+
+    # 4. SCALE_UP / SCALE_DOWN need a real int in range (bool is a subclass
+    #    of int in Python, so `type(...) is int` rejects true/false).
+    amount = data.get("amount")
+    if type(amount) is not int:
+        return fallback(f"amount is not an integer: {amount!r}")
+    if not MIN_AMOUNT <= amount <= MAX_AMOUNT:
+        return fallback(f"amount out of range: {amount}")
+
+    return ParsedAction(action=action, amount=amount, reason=reason)
+
 
 
 # --------------------------------------------------------------------------- #
