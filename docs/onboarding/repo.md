@@ -36,4 +36,4 @@ SCALE/
 
 ## A note on structure as we go
 
-This layout is a starting skeleton, not a fixed contract. As the LLM controller design solidifies (state representation, prompt format, action space, etc.), expect `controller/` in particular to grow real internal structure. If you're about to create a new top-level folder, mention it in your PR description so the rest of the team knows it exists — see [CONTRIBUTING.md](../../CONTRIBUTING.md).
+This layout is a starting skeleton. As the LLM controller design solidifies (state representation, prompt format, action space, etc.), expect `controller/` in particular to grow real internal structure. If you're about to create a new top-level folder, mention it in your PR description so the rest of the team knows it exists — see [CONTRIBUTING.md](../../CONTRIBUTING.md).
