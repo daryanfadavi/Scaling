@@ -1,4 +1,9 @@
-"""Thin wrapper around the Anthropic API: one prompt in, text out.
+"""Thin wrapper around an LLM API: one prompt in, text out.
+
+`LLMClient` talks to the Anthropic API. Everything except the network call
+itself (cache, offline replay, call log) is provider-independent, so another
+provider only has to subclass it and override `_call_api` -- see
+`controller/openrouter_client.py`.
 
 Features:
   * Reads ANTHROPIC_API_KEY (and optionally SCALE_MODEL) from the environment
@@ -36,6 +41,10 @@ log = logging.getLogger(__name__)
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
+class LLMCallError(Exception):
+    """The API call failed. The message is the human-readable reason."""
+
+
 @dataclass
 class LLMResponse:
     text: str
@@ -45,6 +54,11 @@ class LLMResponse:
 
 
 class LLMClient:
+    #: Recorded in cache entries and in the run summary.
+    provider_name = "anthropic"
+    #: The environment variable (or .env entry) holding the API key.
+    api_key_env = "ANTHROPIC_API_KEY"
+
     def __init__(
         self,
         model: str | None = None,
@@ -71,10 +85,10 @@ class LLMClient:
 
     # ------------------------------------------------------------------ public
 
-    @staticmethod
-    def has_api_key() -> bool:
+    @classmethod
+    def has_api_key(cls) -> bool:
         load_dotenv()
-        return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
+        return bool(os.getenv(cls.api_key_env, "").strip())
 
     def complete(
         self, system: str, prompt: str, use_cache: bool = True
@@ -100,57 +114,18 @@ class LLMClient:
         if self.offline:
             return self._fail("offline mode and no cached response for this prompt")
 
-        client = self._get_client()
-        if client is None:
-            return self._fail(
-                "no ANTHROPIC_API_KEY (copy .env.example to .env and add your key)"
-            )
-
-        # The anthropic 1.x SDK no longer has a `temperature` argument, but the API
-        # still honours it for Haiku 4.5 (our default), so we pass it via extra_body.
-        # Newer models (e.g. Opus 4.7+) reject it -- use temperature=None for those.
-        extra_body = (
-            {"temperature": self.temperature} if self.temperature is not None else None
-        )
-
         start = time.perf_counter()
         try:
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": prompt}],
-                extra_body=extra_body,
-            )
-        except anthropic.AuthenticationError:
-            return self._fail(
-                "authentication failed -- check ANTHROPIC_API_KEY in .env"
-            )
-        except anthropic.NotFoundError:
-            return self._fail(
-                f"model {self.model!r} not found -- check SCALE_MODEL in .env"
-            )
-        except anthropic.RateLimitError:
-            return self._fail("rate limited (still failing after retries)")
-        except anthropic.BadRequestError as e:
-            hint = (
-                " (this model may not accept temperature -- try LLMClient(temperature=None))"
-                if "temperature" in str(e.message)
-                else ""
-            )
-            return self._fail(f"bad request: {e.message}{hint}")
-        except anthropic.APIStatusError as e:
-            return self._fail(f"API error {e.status_code}: {e.message}")
-        except anthropic.APIConnectionError as e:  # includes timeouts
-            return self._fail(f"connection problem: {e}")
+            text, stop_reason = self._call_api(system, prompt)
+        except LLMCallError as e:
+            return self._fail(str(e))
         latency = time.perf_counter() - start
 
-        text = "".join(block.text for block in response.content if block.type == "text")
         self.call_log.append(
             {"latency_s": latency, "cached": False, "ok": True, "error": ""}
         )
         if use_cache:
-            self._write_cache(key, system, prompt, text, latency, response.stop_reason)
+            self._write_cache(key, system, prompt, text, latency, stop_reason)
         return LLMResponse(text, latency, cached=False, model=self.model)
 
     def cache_key(self, system: str, prompt: str) -> str:
@@ -161,6 +136,58 @@ class LLMClient:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     # ----------------------------------------------------------------- private
+
+    def _call_api(self, system: str, prompt: str) -> tuple[str, str | None]:
+        """Make one real API call and return (text, stop_reason).
+
+        Raises LLMCallError with a readable reason on any failure. This is the
+        only provider-specific part of the client; subclasses override it.
+        """
+        client = self._get_client()
+        if client is None:
+            raise LLMCallError(
+                "no ANTHROPIC_API_KEY (copy .env.example to .env and add your key)"
+            )
+
+        # The anthropic 1.x SDK no longer has a `temperature` argument, but the API
+        # still honours it for Haiku 4.5 (our default), so we pass it via extra_body.
+        # Newer models (e.g. Opus 4.7+) reject it -- use temperature=None for those.
+        extra_body = (
+            {"temperature": self.temperature} if self.temperature is not None else None
+        )
+
+        try:
+            response = client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+                extra_body=extra_body,
+            )
+        except anthropic.AuthenticationError:
+            raise LLMCallError(
+                "authentication failed -- check ANTHROPIC_API_KEY in .env"
+            ) from None
+        except anthropic.NotFoundError:
+            raise LLMCallError(
+                f"model {self.model!r} not found -- check SCALE_MODEL in .env"
+            ) from None
+        except anthropic.RateLimitError:
+            raise LLMCallError("rate limited (still failing after retries)") from None
+        except anthropic.BadRequestError as e:
+            hint = (
+                " (this model may not accept temperature -- try LLMClient(temperature=None))"
+                if "temperature" in str(e.message)
+                else ""
+            )
+            raise LLMCallError(f"bad request: {e.message}{hint}") from None
+        except anthropic.APIStatusError as e:
+            raise LLMCallError(f"API error {e.status_code}: {e.message}") from None
+        except anthropic.APIConnectionError as e:  # includes timeouts
+            raise LLMCallError(f"connection problem: {e}") from None
+
+        text = "".join(block.text for block in response.content if block.type == "text")
+        return text, response.stop_reason
 
     def _get_client(self) -> anthropic.Anthropic | None:
         if self._client is None:
@@ -196,6 +223,7 @@ class LLMClient:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         entry = {
+            "provider": self.provider_name,
             "model": self.model,
             "temperature": self.temperature,
             "repeat_index": self.repeat_index,

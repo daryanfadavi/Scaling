@@ -1,5 +1,6 @@
 # Python 3.11+ (the anthropic SDK needs 3.10+)
 anthropic>=1.0
+httpx2>=2.0          # already installed by anthropic; the OpenRouter client imports it directly
 python-dotenv>=1.0
 numpy>=1.26
 pandas>=2.0

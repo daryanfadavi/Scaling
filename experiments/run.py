@@ -5,6 +5,8 @@ Examples:
     python -m experiments.run --controller hpa --scenario ramp --seed 3
     python -m experiments.run --controller llm_context --scenario spike_with_warning --repeats 3
     python -m experiments.run --controller human --scenario spike_with_warning --label alice
+    python -m experiments.run --controller llm_context --scenario spike_with_warning \
+        --provider openrouter --model meta-llama/llama-3.3-70b-instruct --openrouter-upstream Fireworks
 
 For each run (seed, repeat) this writes, under experiments/results/<scenario>/<label>/:
     seed<S>_rep<R>.csv   one row per tick
@@ -34,6 +36,7 @@ from controller.hpa_baseline import HPAController
 from controller.human import HumanController, QuitGame
 from controller.llm_client import LLMClient
 from controller.llm_controller import LLMController
+from controller.openrouter_client import OpenRouterClient, parse_upstream
 from controller.scheduled_baseline import ScheduledController, parse_schedule
 from controller.static import StaticController
 from simulator.config import SimConfig
@@ -47,6 +50,7 @@ RESULTS_DIR = REPO_ROOT / "experiments" / "results"
 CACHE_DIR = REPO_ROOT / "experiments" / "cache"
 
 CONTROLLERS = ["static", "human", "hpa", "llm", "llm_context", "scheduled"]
+PROVIDERS = ["anthropic", "openrouter"]
 
 
 def resolve_scenario(name_or_path: str) -> Scenario:
@@ -61,6 +65,44 @@ def resolve_scenario(name_or_path: str) -> Scenario:
     return load_scenario(path)
 
 
+def make_llm_client(args: argparse.Namespace, repeat_index: int) -> LLMClient:
+    """Build the API client for the LLM controllers, for the chosen --provider."""
+    if args.provider == "openrouter":
+        client = OpenRouterClient(
+            model=args.model,
+            cache_dir=args.cache_dir,
+            offline=args.offline,
+            repeat_index=repeat_index,
+            upstream=parse_upstream(args.openrouter_upstream),
+        )
+        if not client.model:
+            raise SystemExit(
+                "--provider openrouter needs a model: pass --model <id> "
+                "(e.g. meta-llama/llama-3.3-70b-instruct) or set OPENROUTER_MODEL in .env"
+            )
+        return client
+    return LLMClient(
+        model=args.model,
+        cache_dir=args.cache_dir,
+        offline=args.offline,
+        repeat_index=repeat_index,
+    )
+
+
+def default_label(controller: Controller) -> str:
+    """The leaderboard name when --label isn't given.
+
+    Normally the controller's name. OpenRouter runs add the model, so trying a
+    second model doesn't overwrite the first one's results (or the Anthropic run's).
+    """
+    if (
+        isinstance(controller, LLMController)
+        and controller.client.provider_name == "openrouter"
+    ):
+        return f"{controller.name}-{controller.client.model}"
+    return controller.name
+
+
 def make_controller(
     args: argparse.Namespace, repeat_index: int, cfg: SimConfig, label: str
 ) -> Controller:
@@ -73,11 +115,8 @@ def make_controller(
     if args.controller == "hpa":
         return HPAController()
     if args.controller in ("llm", "llm_context"):
-        client = LLMClient(
-            cache_dir=args.cache_dir, offline=args.offline, repeat_index=repeat_index
-        )
         return LLMController(
-            client,
+            make_llm_client(args, repeat_index),
             use_context=(args.controller == "llm_context"),
             use_history=not args.no_history,
         )
@@ -149,7 +188,25 @@ def main(argv: list[str] | None = None) -> int:
         help="LLM: only replay cached responses, no API calls",
     )
     parser.add_argument(
-        "--label", help="name on the leaderboard (default: the controller's name)"
+        "--provider",
+        choices=PROVIDERS,
+        default="anthropic",
+        help="LLM: which API serves the model (default anthropic)",
+    )
+    parser.add_argument(
+        "--model",
+        help="LLM: model id (default: SCALE_MODEL for anthropic, "
+        "OPENROUTER_MODEL for openrouter)",
+    )
+    parser.add_argument(
+        "--openrouter-upstream",
+        help='openrouter: pin the upstream provider(s), e.g. "Fireworks" '
+        "(default: OPENROUTER_UPSTREAM, else unpinned)",
+    )
+    parser.add_argument(
+        "--label",
+        help="name on the leaderboard (default: the controller's name; "
+        "openrouter runs add the model)",
     )
     parser.add_argument(
         "--replicas",
@@ -194,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = None
     for repeat in range(args.repeats):
         controller = make_controller(args, repeat, cfg, label or "")
-        run_label = safe_label(label or controller.name)
+        run_label = safe_label(label or default_label(controller))
         env = ScalingEnv(scenario, seed=args.seed)
 
         started = time.perf_counter()
@@ -226,8 +283,19 @@ def main(argv: list[str] | None = None) -> int:
             "scenario": scenario.name,
             "seed": args.seed,
             "repeat": repeat,
+            "provider": (
+                controller.client.provider_name
+                if isinstance(controller, LLMController)
+                else None
+            ),
             "model": (
                 controller.client.model
+                if isinstance(controller, LLMController)
+                else None
+            ),
+            # OpenRouter only: which hosting provider(s) the model was pinned to.
+            "upstream": (
+                getattr(controller.client, "upstream", None)
                 if isinstance(controller, LLMController)
                 else None
             ),
