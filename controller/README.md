@@ -29,4 +29,4 @@ controller/
 └── hierarchical/        # LLM planner + fast low-level controller
 ```
 
-Controllers must not know they are being evaluated — see [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md)
+Controllers must not know they are being evaluated — see [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
