@@ -1,7 +1,5 @@
 # Related work
 
-A short list, on purpose — read these before writing code, and understand *why* each one matters to SCALE rather than just skimming the abstract.
-
 ## DeepRM
 
 **Mao, Alizadeh, Menache, Kandula (2016), "Resource Management with Deep Reinforcement Learning."**
@@ -39,4 +37,4 @@ A realistic microservice benchmark suite. We are *not* starting with this — Ph
 
 ---
 
-If you find a paper that changes how we should think about the research question or the experimental design, add it here with a one-paragraph "why it matters" — don't just drop a citation with no context.
+If you find a paper you think is relevant, add it here with a brief one-paragraph "why it matters"

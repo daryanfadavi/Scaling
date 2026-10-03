@@ -1,6 +1,6 @@
 # Camp QMIND build (Oct 3–4): racing autoscalers in a simulator
 
-Tonight we race three autoscaling controllers on **identical** simulated traffic and see who keeps latency low without wasting money:
+Our goal is to race three autoscaling controllers on **identical** simulated traffic and see who keeps latency low without wasting money:
 
 1. **HPA baseline**: Kubernetes' replica formula, the thing we're trying to beat.
 2. **LLM controller**: sees telemetry (CPU, latency, request rate, …) and answers with a JSON action.
@@ -16,7 +16,7 @@ New replicas take **2 ticks (30 simulated seconds)** to start before they serve 
 
 That delay is the whole point. If new replicas were instant, HPA could wait for the spike and react with no penalty, and knowing about the spike in advance would be worth nothing. With the delay, a purely reactive controller always gets a few overloaded ticks after a sudden spike. A controller that scales up *before* the spike can avoid them. That gap is what we're measuring. (Details are in the long comment at the top of `simulator/env.py`.)
 
-## How the simulator works (2-minute version)
+## How the simulator works
 
 | Thing | Value |
 |---|---|
@@ -38,7 +38,7 @@ Scenarios live in `experiments/configs/`:
 
 A controller only ever sees an `Observation` (see `controller/base.py`). It never sees the scenario name, the config, or the future. Keep it that way: if a controller could "know" it's in the spike scenario, the comparison would be meaningless.
 
-## Setup (≈10 minutes)
+## Setup
 
 You need Python 3.11+.
 
@@ -62,7 +62,7 @@ python scripts/check_api.py          # one real API call (Pair B needs this; it'
 
 The smoke test prints a summary and writes a CSV, a JSON summary and a PNG to `experiments/results/spike/static2/`. Open the PNG. Two replicas can't even handle the base load, so it violates the SLA on every tick. That's what "never scale" looks like.
 
-## Warm-up game: you are the autoscaler (≈15 minutes)
+## Warm-up game: you are the autoscaler
 
 ```bash
 python -m experiments.run --controller human --scenario spike_with_warning --label yourname
@@ -127,6 +127,21 @@ Useful flags:
 
 Every LLM response is cached in `experiments/cache/` (gitignored), keyed on model + prompt + repeat number.
 
+### Running through OpenRouter (other models)
+
+The LLM controllers use the Anthropic API by default. To try a model from another vendor, put `OPENROUTER_API_KEY` in `.env` and add `--provider openrouter`:
+
+```bash
+python scripts/check_api.py --provider openrouter --model meta-llama/llama-3.3-70b-instruct
+python -m experiments.run --controller llm_context --scenario spike_with_warning \
+    --provider openrouter --model meta-llama/llama-3.3-70b-instruct --openrouter-upstream Fireworks
+```
+
+- `--model`: the OpenRouter model id. There is no default; set `OPENROUTER_MODEL` in `.env` to avoid typing it.
+- `--openrouter-upstream`: OpenRouter can serve the same model from different hosting providers on different calls. Pin one (or set `OPENROUTER_UPSTREAM`) so runs are reproducible; you get a warning if you don't.
+- The leaderboard label defaults to `<controller>-<model>`, so different models don't overwrite each other's results.
+- `llm_latency_s` includes the extra hop through OpenRouter, so don't compare it with direct Anthropic runs.
+
 ## Stretch goals
 
 - **Repeats and seeds:** run `--repeats 3` for the LLM variants and `--seed 0/1/2` for everything. Is the LLM's advantage bigger than its run-to-run variance?
@@ -136,4 +151,4 @@ Every LLM response is cached in `experiments/cache/` (gitignored), keyed on mode
 
 ## Scope: this is a pilot, not proof
 
-The simulator is deliberately simple: linear capacity, a textbook queueing curve, a fixed 30 s startup, and no LLM latency in the loop (the decision is applied the same tick regardless of how long the API took). Results here tell us **which experiments are worth running on real Kubernetes**. They are not evidence that LLM autoscaling works in production; that's exactly the concern Dr. Zulkernine raised (see [0_readme.md](0_readme.md)). When you present results, say "in our simulator".
+The simulator is deliberately simple: linear capacity, a textbook queueing curve, a fixed 30 s startup, and no LLM latency in the loop (the decision is applied the same tick regardless of how long the API took). Results here tell us **which experiments are worth running on real Kubernetes**. They are not evidence that LLM autoscaling works in production.

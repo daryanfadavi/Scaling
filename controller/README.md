@@ -1,6 +1,6 @@
 # controller/
 
-Decision-making logic for autoscaling — both the baseline(s) and the LLM-based controller(s).
+Decision-making logic for autoscaling — both the baselines and the LLM-based controllers.
 
 ## Current layout (Camp QMIND)
 
@@ -10,6 +10,7 @@ Decision-making logic for autoscaling — both the baseline(s) and the LLM-based
 | `static.py` | done | fixed replica count; the smallest complete example, read it first |
 | `human.py` | done | you are the autoscaler (interactive CLI) |
 | `llm_client.py` | done | Anthropic API wrapper: `.env` key, retries, timeout, disk cache, offline replay |
+| `openrouter_client.py` | done | same interface, but calls OpenRouter (non-Anthropic models); reuses the cache and offline replay |
 | `hpa_baseline.py` | **stub** | Kubernetes HPA formula (Pair A) |
 | `llm_controller.py` | **partly stub** | plumbing done; prompt + parser are Pair B's |
 | `scheduled_baseline.py` | **stub** | cron-style pre-scaling (stretch goal) |
@@ -29,4 +30,4 @@ controller/
 └── hierarchical/        # LLM planner + fast low-level controller
 ```
 
-Controllers must not know they are being evaluated — see [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) for why that separation matters.
+Controllers must not know they are being evaluated — see [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
