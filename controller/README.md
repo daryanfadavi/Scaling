@@ -1,6 +1,6 @@
 # controller/
 
-Decision-making logic for autoscaling — both the baseline(s) and the LLM-based controller(s).
+Decision-making logic for autoscaling — both the baselines and the LLM-based controllers.
 
 ## Current layout (Camp QMIND)
 
@@ -29,4 +29,4 @@ controller/
 └── hierarchical/        # LLM planner + fast low-level controller
 ```
 
-Controllers must not know they are being evaluated — see [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) for why that separation matters.
+Controllers must not know they are being evaluated — see [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).

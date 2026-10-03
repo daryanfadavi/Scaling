@@ -4,7 +4,7 @@ This file is for tools like Claude Code operating directly in this repository. I
 
 ## Context
 
-SCALE is a research project (not a product), comparing LLM-based cloud autoscaling controllers against conventional baselines (primarily Kubernetes HPA). Correctness and reproducibility of experiments matter more than feature velocity. See `docs/onboarding/0_readme.md` for full research context before making non-trivial changes.
+This is a research project (not a product), comparing LLM-based cloud autoscaling controllers against conventional baselines (primarily Kubernetes HPA). Correctness and reproducibility of experiments matter more than feature velocity. See `docs/onboarding/0_readme.md` for full research context before making non-trivial changes.
 
 ## Repo layout
 

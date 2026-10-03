@@ -79,4 +79,4 @@ You should see replica count increase as load ramps up, and decrease again once 
 - **HPA shows `<unknown>` for targets:** the metrics server likely isn't ready yet; give it a minute after enabling, then check `kubectl top pods`.
 - **Can't reach the service:** for Minikube, use `minikube service <name> --url` to get a reachable URL; for kind, you may need port-forwarding: `kubectl port-forward svc/<name> 8080:80`.
 
-If you hit something not covered here, add it to this file once you've solved it — that's the whole point of an onboarding doc.
+If you hit something not covered here, add it to this file once you've solved it.
