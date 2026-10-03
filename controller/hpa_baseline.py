@@ -1,8 +1,7 @@
 """HPA baseline: Kubernetes' Horizontal Pod Autoscaler replica formula.
 
->>> STUB -- Pair A implements this at Camp QMIND. <<<
-Definition of done: `pytest -m todo tests/todo/test_hpa.py` passes, and
-`python -m experiments.run --controller hpa --scenario spike` runs.
+Tests: tests/core/test_hpa.py. Run with
+`python -m experiments.run --controller hpa --scenario spike`.
 
 This is our primary baseline, so it should behave like the real HPA as closely
 as our simple simulator allows (docs: kubernetes.io/docs/tasks/run-application/
@@ -57,6 +56,9 @@ HINTS
 
 from __future__ import annotations
 
+import math
+from collections import deque
+
 from controller.base import Controller, Decision, Observation
 
 
@@ -75,17 +77,20 @@ class HPAController(Controller):
         self.reset()
 
     def reset(self) -> None:
-        # TODO(pair A): set up whatever state you need for the stabilization window.
-        pass
+        self.recent_recommendations = deque(maxlen=self.stabilization_ticks)
 
     def decide(self, obs: Observation) -> Decision:
-        # TODO(pair A):
-        #   1. ratio = obs.cpu_pct / self.target_cpu_pct
-        #   2. if the ratio is within the tolerance band -> recommendation = current replicas
-        #      else -> recommendation = ceil(current * ratio)
-        #   3. remember the recommendation; target = max over the last
-        #      `stabilization_ticks` recommendations
-        #   4. return Decision(target_replicas=target, info={"reason": ...})
-        raise NotImplementedError(
-            "HPAController.decide is a stub -- see the docstring in controller/hpa_baseline.py"
-        )
+        current = obs.replicas_ready
+        ratio = obs.cpu_pct / self.target_cpu_pct
+
+        if abs(ratio - 1.0) <= self.tolerance:
+            recommendation = current
+        else:
+            recommendation = math.ceil(current * ratio)
+        self.recent_recommendations.append(recommendation)
+        target = max(self.recent_recommendations)
+
+        reason = f"cpu {obs.cpu_pct:.0f}% vs {self.target_cpu_pct:.0f}% on {current} ready -> {recommendation}"
+        if target > recommendation:
+            reason += f", held at {target} by the {self.stabilization_ticks}-tick window"
+        return Decision(target_replicas=target, info={"reason": reason})
