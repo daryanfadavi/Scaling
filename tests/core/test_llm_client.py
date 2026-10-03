@@ -42,6 +42,15 @@ def test_cache_key_depends_on_repeat_index_and_prompt():
     assert a.cache_key("s", "p") == LLMClient(repeat_index=0).cache_key("s", "p")
 
 
+def test_cache_key_format_is_stable():
+    """Changing how the key is built would silently orphan everyone's cache."""
+    client = LLMClient(model="claude-haiku-4-5-20251001", repeat_index=0)
+    assert (
+        client.cache_key("s", "p")
+        == "c02d77bdf744f2fac25e207b3a4b63534db3e35b18eb49bfc79a4d0748a9946a"
+    )
+
+
 def test_offline_replays_cached_response_with_original_latency(tmp_path):
     client = LLMClient(cache_dir=tmp_path, offline=True)
     key = client.cache_key("sys", "hello")
