@@ -57,6 +57,8 @@ HINTS
 
 from __future__ import annotations
 
+from collections import deque
+
 from controller.base import Controller, Decision, Observation
 
 
@@ -76,7 +78,7 @@ class HPAController(Controller):
 
     def reset(self) -> None:
         # TODO(pair A): set up whatever state you need for the stabilization window.
-        pass
+        self.recent_recommendations = deque(maxlen=self.stabilization_ticks)
 
     def decide(self, obs: Observation) -> Decision:
         # TODO(pair A):
