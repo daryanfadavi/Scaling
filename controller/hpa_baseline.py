@@ -57,6 +57,9 @@ HINTS
 
 from __future__ import annotations
 
+import math
+from collections import deque
+
 from controller.base import Controller, Decision, Observation
 
 
@@ -79,13 +82,17 @@ class HPAController(Controller):
         pass
 
     def decide(self, obs: Observation) -> Decision:
-        # TODO(pair A):
-        #   1. ratio = obs.cpu_pct / self.target_cpu_pct
-        #   2. if the ratio is within the tolerance band -> recommendation = current replicas
-        #      else -> recommendation = ceil(current * ratio)
-        #   3. remember the recommendation; target = max over the last
-        #      `stabilization_ticks` recommendations
-        #   4. return Decision(target_replicas=target, info={"reason": ...})
-        raise NotImplementedError(
-            "HPAController.decide is a stub -- see the docstring in controller/hpa_baseline.py"
-        )
+        current = obs.replicas_ready
+        ratio = obs.cpu_pct / self.target_cpu_pct
+
+        if abs(ratio - 1.0) <= self.tolerance:
+            recommendation = current
+        else: 
+            recommendation = math.ceil(current * obs.cpu_pct / self.target_cpu_pct)
+        self.recent_recommendations.append(recommendation)
+        target = max(self.recent_recommendations)
+
+        reason = f"cpu {obs.cpu_pct:.0f}% vs {self.target_cpu_pct:.0f}% on {current} ready -> {recommendation}"
+        if target > recommendation:
+            reason += f", held at {target} by the {self.stabilization_ticks}-tick window"
+        return Decision(target_replicas=target, info={"reason": reason})
