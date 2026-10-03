@@ -1,0 +1,11 @@
+# Sudden 5x spike with no warning. Reactive controllers will be overloaded for
+# a few ticks while new replicas start up (see simulator/env.py).
+name: spike
+description: Base 100 req/s, jumps to 500 at tick 30 for 20 ticks, then back.
+ticks: 80
+load:
+  type: spike
+  base: 100
+  peak: 500
+  start_tick: 30
+  duration_ticks: 20
