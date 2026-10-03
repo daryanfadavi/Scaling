@@ -1,0 +1,20 @@
+# Identical load to spike.yaml (same seed -> same trace), plus an operator note
+# 6 ticks (90 s) before the spike. This is the scenario where context *could*
+# help: a controller that reads the note can scale up before tick 30.
+#
+# The note is shown from tick 24 until the campaign starts at tick 30. Every
+# controller receives it in obs.operator_notes; HPA ignores it, and the
+# metric-only LLM controller strips it before building its prompt.
+name: spike_with_warning
+description: Same trace as spike, plus an operator note at tick 24.
+ticks: 80
+load:
+  type: spike
+  base: 100
+  peak: 500
+  start_tick: 30
+  duration_ticks: 20
+operator_notes:
+  - start_tick: 24
+    end_tick: 30
+    text: "Marketing campaign launches in ~90 seconds; expect ~5x traffic for about 5 minutes."

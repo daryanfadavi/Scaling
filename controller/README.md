@@ -2,6 +2,22 @@
 
 Decision-making logic for autoscaling — both the baseline(s) and the LLM-based controller(s).
 
+## Current layout (Camp QMIND)
+
+| File | Status | What it is |
+|---|---|---|
+| `base.py` | done | `Observation`, `Decision`, `Controller`: the interface every controller follows |
+| `static.py` | done | fixed replica count; the smallest complete example, read it first |
+| `human.py` | done | you are the autoscaler (interactive CLI) |
+| `llm_client.py` | done | Anthropic API wrapper: `.env` key, retries, timeout, disk cache, offline replay |
+| `hpa_baseline.py` | **stub** | Kubernetes HPA formula (Pair A) |
+| `llm_controller.py` | **partly stub** | plumbing done; prompt + parser are Pair B's |
+| `scheduled_baseline.py` | **stub** | cron-style pre-scaling (stretch goal) |
+
+See [camp_qmind.md](../docs/onboarding/camp_qmind.md) for the tasks. Specs for the stubs are in `tests/todo/`.
+
+## Longer term
+
 Expect subfolders per controller variant as the design solidifies, e.g.:
 
 ```

@@ -29,3 +29,7 @@ experiments/**/*.log
 
 # Locust
 locust_reports/
+
+# Simulator outputs (Camp QMIND): results and the LLM response cache
+experiments/results/
+experiments/cache/

@@ -1,0 +1,12 @@
+# Gradual growth: 100 -> 500 req/s linearly over ticks 10-50, then hold.
+# A reactive controller (HPA) should cope well here -- the load changes slowly
+# enough that the 30 s startup delay barely hurts. Good sanity check.
+name: ramp
+description: 100 to 500 req/s linearly over ticks 10-50, then hold.
+ticks: 80
+load:
+  type: ramp
+  start: 100
+  end: 500
+  ramp_start_tick: 10
+  ramp_end_tick: 50
