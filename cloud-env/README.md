@@ -2,7 +2,9 @@
 
 The Phase 1 test environment: the app we scale, and the infrastructure/workload tooling around it.
 
-Planned structure as this fills in:
+**Not built yet: writing this folder is the team's Phase 1 exercise.** The requirements and the traps to avoid are in [setup.md](../docs/onboarding/setup.md#your-task-build-cloud-env).
+
+Planned structure:
 
 ```
 cloud-env/
