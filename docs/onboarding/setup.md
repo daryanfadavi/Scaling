@@ -122,6 +122,17 @@ kubectl get hpa -w
 
 You should see replica count increase as load ramps up, and decrease again once it drops — that's the Phase 1 milestone. Scaling down is deliberately slow: HPA waits 5 minutes after load drops (its stabilization window, the same one our simulator models).
 
+## Phase 2 — LLM controller on Kubernetes
+
+After you have done steps 5 and 6 locally (the app is not in this repo), Kubernetes HPA is still the scaler. Phase 2 turns that HPA off and lets the camp LLM controller (`decide()` in `controller/llm_controller.py`) set replica counts on the live Deployment. `experiments/k8s_run.py` is the glue: scrape CPU (and `GET /metrics` if the app exposes it), call `decide()`, clamp, then `kubectl scale`. The controller never talks to Kubernetes itself.
+
+`--controller llm` is metrics-only. `--controller llm_context` also sees operator notes (use `--scenario spike_with_warning` or `--note`). `--disable-hpa` deletes the cluster HPA so it does not fight the LLM. `--fake-llm` exercises parse and guardrails with canned JSON (no API key). A real run needs `ANTHROPIC_API_KEY` in `.env`.
+
+```bash
+python -m experiments.k8s_run --controller llm --disable-hpa --ticks 40 --fake-llm
+python -m experiments.k8s_run --controller llm_context --disable-hpa --scenario spike_with_warning --fake-llm
+```
+
 ## Troubleshooting
 
 - **Pods stuck in `Pending`:** usually a resource request issue — check `kubectl describe pod <name>` for scheduling errors.
