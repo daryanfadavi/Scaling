@@ -35,6 +35,7 @@ import pandas as pd
 from controller.base import Controller
 from controller.hpa_baseline import HPAController
 from controller.human import HumanController, QuitGame
+from controller.keda_baseline import KEDAController
 from controller.llm_client import LLMClient
 from controller.fake_llm_client import FakeLLMClient
 from controller.llm_controller import LLMController
@@ -51,7 +52,7 @@ CONFIG_DIR = REPO_ROOT / "experiments" / "configs"
 RESULTS_DIR = REPO_ROOT / "experiments" / "results"
 CACHE_DIR = REPO_ROOT / "experiments" / "cache"
 
-CONTROLLERS = ["static", "human", "hpa", "llm", "llm_context", "scheduled"]
+CONTROLLERS = ["static", "human", "hpa", "keda", "llm", "llm_context", "scheduled"]
 PROVIDERS = ["anthropic", "openrouter"]
 
 
@@ -119,6 +120,8 @@ def make_controller(
         return HumanController(name=label, sla_latency_ms=cfg.sla_latency_ms)
     if args.controller == "hpa":
         return HPAController()
+    if args.controller == "keda":
+        return KEDAController()
     if args.controller in ("llm", "llm_context"):
         return LLMController(
             make_llm_client(args, repeat_index),
