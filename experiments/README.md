@@ -10,6 +10,9 @@ Two separate things live here:
 ```
 experiments/
 ├── run_experiment.py   # cluster runner (below)
+├── summarize_cluster.py # scores and compares cluster runs (below)
+├── prompt_lab.py       # replays recorded situations against prompt variants, no cluster (below)
+├── prompt_lab_cases/   # recorded situations for the prompt lab (small JSON, committed)
 ├── scenarios/          # Locust scenarios for the cluster runner
 ├── run.py, plot.py     # simulator runner and plots
 ├── configs/            # simulator scenario YAMLs
@@ -67,6 +70,45 @@ redoes it.
 | `controller.log` | stdout/stderr of a process-based controller (e.g. llm) |
 
 Results are gitignored. Share them some other way (or commit a summary), and always keep `metadata.json` with the CSV.
+
+## Comparing runs
+
+```bash
+python experiments/summarize_cluster.py [--scenario S ...] [--controller A B ...]
+```
+
+Scores every run folder and writes `experiments/results/cluster_runs.csv` (one row per run) and
+`cluster_summary.md` (one row per scenario and controller, mean ± standard deviation over repeats).
+Per run: SLA-violation ticks (p95 above 300 ms), pod-minutes (the cost), peak pods, scale events, flaps
+(direction reversals), peak p95, and for LLM controllers the number of failed or invalid model calls.
+
+**A run with failed model calls gets a warning.** The controller treats a failed call as "do nothing", so
+a broken model call looks like a calm controller. Don't read such a run as the model choosing to hold.
+
+## Prompt experiments
+
+The LLM controller's prompt has named variants in [`controllers/llm/prompt.py`](../controllers/llm/prompt.py),
+each differing from the baseline `cluster-v1` by one thing. Each has a plugin folder, so its runs land in their own results folder:
+
+| Controller (`--controller`) | Prompt | Change from the baseline |
+|---|---|---|
+| `llm` | `cluster-v1` | none (the baseline) |
+| `llm_nohist` | `cluster-v1-nohist` | the model sees no past decisions |
+| `llm_trend` | `cluster-v2-trend` | adds a trend line (rising / falling / flat) computed from the controller's own recent readings |
+| `llm_words` | `cluster-v2-words` | adds a word (low / high / ...) next to CPU, latency and errors |
+
+Change one thing per variant, give it a new name, and add it to `VARIANTS`. Nothing in a prompt may mention the experiment.
+
+**Cheap first pass, no cluster:** [`prompt_lab.py`](prompt_lab.py) turns the ticks of a finished run (`controller.log`) into
+cases and asks each variant what it would do, several times each. It is open-loop (a frozen moment, not its consequences), so use it
+to shortlist prompts and confirm the shortlist on the cluster with repeats.
+
+```bash
+python experiments/prompt_lab.py extract experiments/results/<scenario>/llm/repeat_1/controller.log --name <name> --out experiments/prompt_lab_cases/<name>.json
+python experiments/prompt_lab.py run --cases experiments/prompt_lab_cases/<name>.json --ticks 9 15 --repeats 5   # live API calls
+```
+
+Cases can carry an `expect` list (the actions that count as sensible) with an `expect_note`. These are human judgements; say so in the note.
 
 ## Controller plugins
 
