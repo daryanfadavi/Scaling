@@ -208,3 +208,9 @@ def test_scale_to_refuses_out_of_bounds_targets():
         llm_main.scale_to(11)
     with pytest.raises(ValueError):
         llm_main.scale_to(0)
+
+
+def test_anthropic_client_sends_no_temperature(monkeypatch):
+    # The API rejects `temperature` for Haiku 4.5, so the controller must not send it.
+    monkeypatch.delenv("SCALE_PROVIDER", raising=False)
+    assert llm_main.make_client().temperature is None

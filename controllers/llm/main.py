@@ -126,7 +126,10 @@ def make_client():
     every decision is a live call."""
     if os.getenv("SCALE_PROVIDER", "anthropic").lower() == "openrouter":
         return OpenRouterClient()
-    return LLMClient()
+    # temperature=None: the Anthropic API now rejects the temperature parameter for
+    # claude-haiku-4-5 ("Extra inputs are not permitted"), which made every call fail.
+    # The value in use is logged in the start line of controller.log.
+    return LLMClient(temperature=None)
 
 
 # ---- One decision ---------------------------------------------------------------------------
@@ -212,7 +215,8 @@ def main() -> None:
 
     client = make_client()
     controller = Controller(client, stop)
-    log_line({"event": "start", "model": getattr(client, "model", None), "prompt_version": PROMPT_VERSION,
+    log_line({"event": "start", "model": getattr(client, "model", None),
+              "temperature": getattr(client, "temperature", None), "prompt_version": PROMPT_VERSION,
               "interval_s": DECISION_INTERVAL_S, "cooldown_after_scale_s": COOLDOWN_AFTER_SCALE_S,
               "scale_down_cooldown_s": SCALE_DOWN_COOLDOWN_S, "replica_bounds": [MIN_REPLICAS, MAX_REPLICAS]})
 

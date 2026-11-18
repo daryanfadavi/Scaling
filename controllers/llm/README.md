@@ -32,7 +32,7 @@ If Prometheus, kubectl or the model call fails, the tick holds (no change) and l
 | Setting | Value |
 |---|---|
 | Model | `SCALE_MODEL` from `.env`, default `claude-haiku-4-5-20251001` (`SCALE_PROVIDER=openrouter` uses `OPENROUTER_MODEL`; pin `OPENROUTER_UPSTREAM`). The model is logged in the first line of `controller.log`. |
-| Temperature | 0 |
+| Temperature | not sent (the Anthropic API rejects it for Haiku 4.5, so the model's default applies); logged in the first line of `controller.log` |
 | Decision interval | 15 s (one per telemetry snapshot) |
 | Action | `SCALE_UP` / `SCALE_DOWN` by 1 to 3 pods, or `NO_CHANGE` |
 | Replicas | 1 to 10 |
@@ -60,6 +60,6 @@ Check `experiments/results/gradual_ramp/llm/repeat_1/controller.log` for the dec
 for `replicas_desired` changing. `start.sh` uses `python` from your `PATH`, so activate the venv first.
 
 A run makes about duration/15 live API calls (40 for 10 minutes, plus the settle time). Model output isn't
-perfectly repeatable even at temperature 0, so use `--repeat` for comparisons.
+repeatable (temperature can't be set to 0 for this model), so use `--repeat` for comparisons.
 
 Tests (no cluster or key needed): `pytest tests/core/test_cluster_llm.py`.
