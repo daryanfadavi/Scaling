@@ -7,7 +7,7 @@ Each folder here is one autoscaler that `experiments/run_experiment.py` can run:
 | [`hpa/`](hpa/) | Ready | Kubernetes HPA on CPU (60% target, 1 to 10 pods): the baseline |
 | [`keda/`](keda/) | Ready | KEDA on request rate (9 req/s per pod, 1 to 10 pods): the second baseline |
 | [`phpa/`](phpa/) | To build | Predictive Horizontal Pod Autoscaler |
-| [`llm/`](llm/) | To build | Our LLM-based controller, running as a separate process |
+| [`llm/`](llm/) | Ready (untested on a live cluster) | Our LLM-based controller, running as a separate process |
 
 Not to be confused with [`controller/`](../controller/) (singular). That folder holds the
 Camp QMIND **simulator** controllers and isn't used here.
