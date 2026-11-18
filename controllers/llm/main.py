@@ -38,14 +38,14 @@ from dotenv import load_dotenv
 from controller.llm_client import LLMClient
 from controller.llm_controller import ParsedAction, fallback, parse_response
 from controller.openrouter_client import OpenRouterClient
-from controllers.llm.prompt import PROMPT_VERSION, SYSTEM_PROMPT, build_prompt
+from controllers.llm.prompt import DEFAULT_HISTORY_TICKS, DEFAULT_VARIANT, did_text, get_variant, history_entry
 from telemetry import INTERVAL_SECONDS, latest_snapshot
 
 # ---- Settings (fixed: every run uses the same ones; document changes in README.md) ----
 DECISION_INTERVAL_S = INTERVAL_SECONDS  # one decision per telemetry snapshot (15 s)
 COOLDOWN_AFTER_SCALE_S = 30       # after any scaling action, hold for this long
 SCALE_DOWN_COOLDOWN_S = 120       # after any scaling action, don't scale DOWN for this long
-HISTORY_TICKS = 5                 # past decisions shown to the model
+HISTORY_TICKS = DEFAULT_HISTORY_TICKS  # past decisions shown to the model (a prompt variant may change it)
 KUBECTL_TIMEOUT_S = 30
 # ----------------------------------------------------------------------------------------
 
@@ -135,17 +135,18 @@ def make_client():
 # ---- One decision ---------------------------------------------------------------------------
 
 class Controller:
-    def __init__(self, client, stop: threading.Event, clock=time.monotonic):
+    def __init__(self, client, stop: threading.Event, clock=time.monotonic, variant=None):
         self.client = client
         self.stop = stop
         self.clock = clock
-        self.history: deque[dict] = deque(maxlen=HISTORY_TICKS)
+        self.variant = variant or get_variant(DEFAULT_VARIANT)  # which prompt (controllers/llm/prompt.py)
+        self.history: deque[dict] = deque(maxlen=self.variant.history_ticks)
         self.last_scale_time: float | None = None
         self.tick = 0
 
     def step(self) -> dict:
         """Run one observe -> decide -> act cycle and return what to log."""
-        record: dict = {"tick": self.tick, "prompt_version": PROMPT_VERSION}
+        record: dict = {"tick": self.tick, "prompt_version": self.variant.name}
         self.tick += 1
         try:
             snapshot = latest_snapshot()
@@ -159,8 +160,8 @@ class Controller:
             "latency_p50_ms", "latency_p95_ms", "error_rate")}
         record["replicas_before"] = current
 
-        prompt = build_prompt(snapshot, current, MIN_REPLICAS, MAX_REPLICAS, list(self.history))
-        response = self.client.complete(SYSTEM_PROMPT, prompt, use_cache=False)
+        prompt = self.variant.build(snapshot, current, MIN_REPLICAS, MAX_REPLICAS, list(self.history))
+        response = self.client.complete(self.variant.system_prompt, prompt, use_cache=False)
         if response is None:
             parsed = fallback("LLM call failed")
         else:
@@ -186,20 +187,8 @@ class Controller:
         record["applied"] = applied
 
         # What the model is told it did: the asked-for action, and whether it took effect.
-        asked = "NO_CHANGE" if parsed.action == "NO_CHANGE" else f"{parsed.action} {parsed.amount}"
-        if parsed.invalid:
-            did = "invalid answer, nothing changed"
-        elif applied or parsed.action == "NO_CHANGE":
-            did = asked
-        else:
-            did = f"{asked} (blocked by guardrails, nothing changed)"
-        self.history.append({
-            **{k: snapshot.get(k) for k in (
-                "replicas_ready", "replicas_starting", "cpu_utilization_pct",
-                "request_rate_rps", "latency_p95_ms", "error_rate")},
-            "replicas_requested": target if applied else current,
-            "action": did,
-        })
+        did = did_text(parsed.action, parsed.amount, parsed.invalid, applied)
+        self.history.append(history_entry(snapshot, target if applied else current, did))
         return record
 
 
@@ -213,10 +202,15 @@ def main() -> None:
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: stop.set())
 
+    try:  # which prompt: SCALE_PROMPT, set by the plugin folder (controllers/llm_trend, ...)
+        variant = get_variant(os.getenv("SCALE_PROMPT") or DEFAULT_VARIANT)
+    except ValueError as error:
+        sys.exit(str(error))
     client = make_client()
-    controller = Controller(client, stop)
+    controller = Controller(client, stop, variant=variant)
     log_line({"event": "start", "model": getattr(client, "model", None),
-              "temperature": getattr(client, "temperature", None), "prompt_version": PROMPT_VERSION,
+              "temperature": getattr(client, "temperature", None), "prompt_version": variant.name,
+              "history_ticks": controller.history.maxlen,
               "interval_s": DECISION_INTERVAL_S, "cooldown_after_scale_s": COOLDOWN_AFTER_SCALE_S,
               "scale_down_cooldown_s": SCALE_DOWN_COOLDOWN_S, "replica_bounds": [MIN_REPLICAS, MAX_REPLICAS]})
 
