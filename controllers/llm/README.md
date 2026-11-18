@@ -1,6 +1,6 @@
-# llm: our LLM-based controller (to build)
+# llm: our LLM-based controller
 
-**Status: not implemented.** The runner refuses to run it until this folder has a `start.sh`.
+**Status: implemented.** `start.sh` runs `python -m controllers.llm.main` until SIGTERM.
 Read the contract in [controllers/README.md](../README.md) first.
 
 This controller runs as a **separate process** on your machine for the whole run:
@@ -27,4 +27,11 @@ The simulator's prompt, parser and guardrails in `controller/llm_controller.py` 
 `controller/llm_client.py` are a good starting point, but don't import experiment configs or
 scenario details: the controller must not know it's being evaluated.
 
-Write down here: model and version, temperature, decision interval, cooldown, prompt version.
+`llm` and `llm_context` (`SCALE_LLM_MODE`) use that camp prompt. `llm_history`,
+`llm_predictive`, and `llm_predictive_context` add trends, a capped request-rate
+forecast, and startup awareness. Notes, when the mode includes them, come from
+`SCALE_OPERATOR_NOTES`, not from scenario files. `SCALE_LLM_FAKE=1` skips the API.
+Missing snapshot fields stay missing (never filled in as zero). There is no memory metric.
+
+Defaults, not tuned: scale-up step 3, scale-down step 1, 120 s before scale-down,
+replicas 1–10. Tests: `python -m pytest tests/core/test_llm_cluster_controller.py`.

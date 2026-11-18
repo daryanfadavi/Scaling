@@ -145,14 +145,22 @@ def stop_controller_process() -> None:
         return
     pid = int(PID_FILE.read_text())
     try:
-        os.killpg(pid, signal.SIGTERM)
-        log(f"  sent SIGTERM to controller process group {pid}")
-        deadline = time.time() + STOP_TIMEOUT_SECONDS
-        while time.time() < deadline:
-            os.killpg(pid, 0)  # raises once the group is gone
-            time.sleep(1)
-        log("  controller didn't exit in time; sending SIGKILL")
-        os.killpg(pid, signal.SIGKILL)
+        if hasattr(os, "killpg"):
+            os.killpg(pid, signal.SIGTERM)
+            log(f"  sent SIGTERM to controller process group {pid}")
+            deadline = time.time() + STOP_TIMEOUT_SECONDS
+            while time.time() < deadline:
+                os.killpg(pid, 0)  # raises once the group is gone
+                time.sleep(1)
+            log("  controller didn't exit in time; sending SIGKILL")
+            os.killpg(pid, signal.SIGKILL)
+        else:
+            # Windows has no process groups. taskkill /T stops start.sh and python.
+            log(f"  stopping controller process tree {pid}")
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                check=False, capture_output=True, text=True,
+            )
     except ProcessLookupError:
         pass  # already gone
     PID_FILE.unlink(missing_ok=True)
