@@ -42,14 +42,19 @@ class LLMAutoscaler:
             return self._decide(snapshot, now)
 
     def note_applied(self, result: CycleResult, now: float) -> None:
-        """Call only after a scale request was accepted by Kubernetes."""
+        """Call only after Kubernetes has accepted the scale command."""
         with self._lock:
-            ready = None
-            if self.state.observations():
+            ready = result.observed_ready
+            if ready is None and self.state.observations():
                 ready = self.state.observations()[-1].ready_replicas
-            self.state.note_scale_request(now, result.validated_desired, ready)
-            if result.current_desired is not None and result.validated_desired < result.current_desired:
+            baseline = self.state.authoritative_desired(
+                self.state.observations()[-1]
+            ) if self.state.observations() else result.current_desired
+            self.state.note_scale_accepted(now, result.validated_desired, ready)
+            if baseline is not None and result.validated_desired < baseline:
                 self.state.note_scale_down(now)
+            result.scale_outcome = "accepted"
+            result.last_acknowledged_target = result.validated_desired
             self._awaiting_outcome = {
                 "unix_time": now,
                 "requested_replicas": result.validated_desired,
@@ -57,6 +62,13 @@ class LLMAutoscaler:
             }
             if self.state.observations():
                 self._awaiting_outcome["p95_latency_ms"] = self.state.observations()[-1].p95_latency_ms
+
+    def note_failed(self, result: CycleResult, error: str) -> None:
+        """A rejected scale command does not change the last accepted target."""
+        with self._lock:
+            self.state.note_scale_failed(error)
+            result.scale_outcome = self.state.last_scale_outcome
+            result.applied = False
 
     def _decide(self, snapshot: dict, now: float | None) -> CycleResult:
         clock = now if now is not None else datetime.now(timezone.utc).timestamp()
@@ -86,45 +98,61 @@ class LLMAutoscaler:
             context_event=event,
         )
 
+        reconciliation = self.state.reconcile(obs, clock, self.config.reconcile_timeout_seconds)
+        baseline = self.state.authoritative_desired(obs)
+
         raw, reason, invalid, latency, model, source = self._ask(view, obs, notes)
         if raw is None:
             raw, reason = fallback_desired(obs, self.state, self.config)
             invalid = True
             source = "hold" if "hold" in reason else "fallback"
 
-        if obs.desired_replicas is None:
-            return CycleResult(
-                mode=self.config.mode,
-                source="hold",
-                prompt_version=prompt_version(self.config),
-                model=model,
-                inference_latency_s=latency,
-                current_desired=None,
-                raw_desired=raw,
-                validated_desired=self.config.min_replicas,
-                action="hold",
-                reason="desired replicas missing; not scaling",
-                safety_notes=["desired replicas unknown"],
-                forecast=_forecast_dict(forecast),
-                invalid_model_output=invalid,
-            )
-
-        validated, safety = validate(raw, obs, self.state, self.config, clock)
-        action = _action(obs.desired_replicas, validated)
-        return CycleResult(
+        common = dict(
             mode=self.config.mode,
-            source=source,
             prompt_version=prompt_version(self.config),
             model=model,
             inference_latency_s=latency,
             current_desired=obs.desired_replicas,
             raw_desired=raw,
-            validated_desired=validated,
-            action=action,
-            reason=reason,
-            safety_notes=safety,
+            observed_ready=obs.ready_replicas,
+            last_acknowledged_target=self.state.acknowledged_target,
+            reconciliation=reconciliation,
+            observation_unix_time=obs.unix_time,
+            decision_unix_time=clock,
+            stale=obs.stale,
+            cpu_utilization_percent=obs.cpu_utilization_percent,
+            requests_per_second=obs.requests_per_second,
+            p95_latency_ms=obs.p95_latency_ms,
+            error_rate=obs.error_rate,
+            run_id=self.config.run_id,
             forecast=_forecast_dict(forecast) if not self.config.baseline_prompt else None,
             invalid_model_output=invalid,
+            scale_outcome=self.state.last_scale_outcome,
+        )
+
+        if baseline is None:
+            return CycleResult(
+                **common,
+                source="hold",
+                validated_desired=self.config.min_replicas,
+                action="hold",
+                reason="desired replicas missing; not scaling",
+                safety_notes=["desired replicas unknown"],
+                submit_scale=False,
+            )
+
+        validated, safety = validate(raw, obs, self.state, self.config, clock, baseline)
+        submit = validated != baseline
+        if self.state.reconciliation_pending and validated == self.state.acknowledged_target:
+            submit = False
+        return CycleResult(
+            **common,
+            source=source,
+            validated_desired=validated,
+            action=_action(baseline, validated),
+            reason=reason,
+            safety_notes=safety,
+            submit_scale=submit,
         )
 
     def _ask(self, view: StateSnapshot, obs: ClusterObservation, notes: tuple[str, ...]):

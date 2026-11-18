@@ -33,5 +33,24 @@ forecast, and startup awareness. Notes, when the mode includes them, come from
 `SCALE_OPERATOR_NOTES`, not from scenario files. `SCALE_LLM_FAKE=1` skips the API.
 Missing snapshot fields stay missing (never filled in as zero). There is no memory metric.
 
+After `kubectl` accepts a scale, that target is remembered until a later snapshot
+reports the same desired count. A stale desired count cannot scale down over it
+or replace it. Confirmed overload can still add pods, using the accepted target
+as the baseline. If the desired count does not catch up within
+`SCALE_LLM_RECONCILE_TIMEOUT_SECONDS` (default 60), the observed count is adopted.
+This process lock does not stop a different controller from scaling the same deployment.
+
+Run one mode through the shared runner (cluster already up, from the repo root):
+
+```text
+python experiments/run_experiment.py --controller llm --scenario gradual_ramp --duration 180
+```
+
+Set `SCALE_LLM_MODE` to `llm`, `llm_context`, `llm_history`, `llm_predictive`, or
+`llm_predictive_context` before that command. Only `llm_context` and
+`llm_predictive_context` see `SCALE_OPERATOR_NOTES`. The runner writes
+`controller.log` next to `metrics.csv`. An existing `repeat_N` folder is skipped;
+pass `--repeat` with the next free number.
+
 Defaults, not tuned: scale-up step 3, scale-down step 1, 120 s before scale-down,
 replicas 1–10. Tests: `python -m pytest tests/core/test_llm_cluster_controller.py`.

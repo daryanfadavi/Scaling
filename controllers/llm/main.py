@@ -49,15 +49,14 @@ def scale_to(config, replicas: int) -> None:
 def run_once(controller: LLMAutoscaler, config, snapshot: dict | None = None):
     snap = latest_snapshot() if snapshot is None else snapshot
     result = controller.decide(snap)
-    if (
-        not config.dry_run
-        and result.current_desired is not None
-        and result.validated_desired != result.current_desired
-    ):
+    # submit_scale is false when the validated count is already the accepted
+    # target. A stale desired count must not cause another kubectl scale.
+    if not config.dry_run and result.submit_scale:
         try:
             scale_to(config, result.validated_desired)
         except (RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
             result.apply_error = str(exc)
+            controller.note_failed(result, result.apply_error)
         else:
             result.applied = True
             controller.note_applied(result, time.time())

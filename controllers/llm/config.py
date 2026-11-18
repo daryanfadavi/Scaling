@@ -45,6 +45,7 @@ class ControllerConfig:
     scale_down_stabilization_seconds: float
     minimum_seconds_between_scale_downs: float
     stale_after_seconds: float
+    reconcile_timeout_seconds: float
     emergency_cpu_percent: float
     emergency_p95_ms: float
     emergency_error_rate: float
@@ -56,6 +57,7 @@ class ControllerConfig:
     log_decisions: bool
     operator_notes: tuple[str, ...]
     operator_event: dict | None
+    run_id: str = ""
 
     @property
     def context_enabled(self) -> bool:
@@ -139,6 +141,7 @@ def load_config() -> ControllerConfig:
         scale_down_stabilization_seconds=_float("SCALE_LLM_SCALE_DOWN_STABILIZATION_SECONDS", 120.0, minimum=0.0),
         minimum_seconds_between_scale_downs=_float("SCALE_LLM_MIN_SECONDS_BETWEEN_SCALE_DOWNS", 30.0, minimum=0.0),
         stale_after_seconds=_float("SCALE_LLM_STALE_AFTER_SECONDS", 60.0, minimum=1.0),
+        reconcile_timeout_seconds=_float("SCALE_LLM_RECONCILE_TIMEOUT_SECONDS", 60.0, minimum=1.0),
         emergency_cpu_percent=_float("SCALE_LLM_EMERGENCY_CPU", 95.0, minimum=0.0),
         emergency_p95_ms=_float("SCALE_LLM_EMERGENCY_P95_MS", 300.0, minimum=0.0),
         emergency_error_rate=_float("SCALE_LLM_EMERGENCY_ERROR_RATE", 0.05, minimum=0.0),
@@ -150,4 +153,5 @@ def load_config() -> ControllerConfig:
         log_decisions=_bool("SCALE_LLM_LOG_DECISIONS", True),
         operator_notes=notes,
         operator_event=event,
+        run_id=os.getenv("SCALE_RUN_ID", "").strip(),
     )

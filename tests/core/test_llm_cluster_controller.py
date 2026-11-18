@@ -42,6 +42,7 @@ def config(**overrides) -> ControllerConfig:
         scale_down_stabilization_seconds=120,
         minimum_seconds_between_scale_downs=30,
         stale_after_seconds=60,
+        reconcile_timeout_seconds=60,
         emergency_cpu_percent=95,
         emergency_p95_ms=300,
         emergency_error_rate=0.05,
@@ -263,12 +264,13 @@ def test_bounds_and_step_and_pending_and_emergency():
     assert target == 5  # +3 step, emergency ignores pending hold
     assert any("overload" in n for n in notes)
 
-    # Scale-down is held until low demand has lasted long enough, even if the
-    # model asks for 0. With stabilization disabled, the minimum bound applies.
+    # 50% CPU is not low demand, so scale-down waits. With the timer disabled
+    # and CPU actually low, the minimum bound applies.
     tiny = observation_from_snapshot(snap(1000, replicas_desired=2), now=1000)
     assert validate(0, tiny, state, cfg, 1000)[0] == 2
+    calm = observation_from_snapshot(snap(1000, replicas_desired=2, cpu_utilization_pct=10), now=1000)
     loose = config(scale_down_stabilization_seconds=0, minimum_seconds_between_scale_downs=0)
-    assert validate(0, tiny, StateManager(loose), loose, 1000)[0] == 1
+    assert validate(0, calm, StateManager(loose), loose, 1000)[0] == 1
     assert validate(50, tiny, StateManager(loose), loose, 1000)[0] == 5
 
 
@@ -337,6 +339,270 @@ def test_config_rejects_bad_mode(monkeypatch):
     monkeypatch.setenv("SCALE_LLM_MODE", "nope")
     with pytest.raises(ValueError):
         load_config()
+
+
+def _low(t, desired=6, ready=6):
+    return snap(
+        t,
+        replicas_desired=desired,
+        replicas_ready=ready,
+        replicas_starting=0,
+        cpu_utilization_pct=10,
+        request_rate_rps=2,
+        latency_p95_ms=12,
+        error_rate=0.0,
+    )
+
+
+def test_stale_desired_cannot_overwrite_an_accepted_scale():
+    """The 3-minute failure: accept 6, next snapshot still says 3, model asks for 4."""
+    replies = [
+        '{"action": "SCALE_UP", "amount": 3, "reason": "load"}',
+        '{"action": "SCALE_UP", "amount": 1, "reason": "stale baseline"}',
+        '{"action": "NO_CHANGE", "amount": 0, "reason": "caught up"}',
+        '{"action": "SCALE_DOWN", "amount": 3, "reason": "idle"}',
+        '{"action": "SCALE_DOWN", "amount": 3, "reason": "still idle"}',
+        '{"action": "SCALE_DOWN", "amount": 3, "reason": "idle long enough"}',
+    ]
+    ctl = LLMAutoscaler(config(minimum_seconds_between_scale_downs=0), FakeLLMClient(replies=replies))
+    start = 10_000.0
+
+    first = ctl.decide(snap(start, replicas_desired=3, replicas_ready=3, cpu_utilization_pct=50), now=start)
+    assert first.raw_desired == 6 and first.validated_desired == 6 and first.submit_scale
+    ctl.note_applied(first, start)
+
+    stale = ctl.decide(snap(start + 15, replicas_desired=3, replicas_ready=3, cpu_utilization_pct=50), now=start + 15)
+    assert stale.reconciliation == "pending"
+    assert stale.last_acknowledged_target == 6
+    assert stale.raw_desired == 4
+    assert stale.validated_desired == 6 and stale.submit_scale is False
+    assert any("not reconciled" in note for note in stale.safety_notes)
+
+    caught = ctl.decide(snap(start + 30, replicas_desired=6, replicas_ready=3, cpu_utilization_pct=50), now=start + 30)
+    assert caught.reconciliation == "reconciled"
+    assert caught.validated_desired == 6 and caught.submit_scale is False
+    assert caught.observed_ready == 3
+
+    down = ctl.decide(_low(start + 45), now=start + 45)
+    assert down.validated_desired == 6 and down.submit_scale is False
+    early = ctl.decide(_low(start + 100), now=start + 100)
+    assert early.validated_desired == 6 and early.submit_scale is False
+    allowed = ctl.decide(_low(start + 45 + 120), now=start + 45 + 120)
+    assert allowed.validated_desired == 5 and allowed.submit_scale and allowed.action == "scale_down"
+
+
+def test_overload_scale_up_is_allowed_before_reconciliation():
+    replies = [
+        '{"action": "SCALE_UP", "amount": 2, "reason": "up"}',
+        '{"action": "SCALE_UP", "amount": 3, "reason": "hot"}',
+    ]
+    ctl = LLMAutoscaler(config(), FakeLLMClient(replies=replies))
+    first = ctl.decide(snap(1000, replicas_desired=2, replicas_ready=2, cpu_utilization_pct=50), now=1000)
+    ctl.note_applied(first, 1000)
+    hot = ctl.decide(snap(1015, replicas_desired=2, replicas_ready=2, cpu_utilization_pct=99), now=1015)
+    assert hot.reconciliation == "pending" and hot.submit_scale
+    assert hot.validated_desired == 5  # accepted 4, plus one, inside the +3 step
+
+
+def test_extra_scale_up_waits_while_unreconciled_and_not_overloaded():
+    replies = [
+        '{"action": "SCALE_UP", "amount": 2, "reason": "up"}',
+        '{"action": "SCALE_UP", "amount": 5, "reason": "more"}',
+    ]
+    ctl = LLMAutoscaler(config(), FakeLLMClient(replies=replies))
+    first = ctl.decide(snap(1000, replicas_desired=2, replicas_ready=2), now=1000)
+    ctl.note_applied(first, 1000)
+    nxt = ctl.decide(snap(1015, replicas_desired=2, replicas_ready=2, cpu_utilization_pct=50), now=1015)
+    assert nxt.validated_desired == 4 and nxt.submit_scale is False
+
+
+def test_reconcile_timeout_adopts_the_observed_count():
+    replies = [
+        '{"action": "SCALE_UP", "amount": 2, "reason": "up"}',
+        '{"action": "NO_CHANGE", "amount": 0, "reason": "give up"}',
+    ]
+    ctl = LLMAutoscaler(config(reconcile_timeout_seconds=30), FakeLLMClient(replies=replies))
+    first = ctl.decide(snap(1000, replicas_desired=2, replicas_ready=2), now=1000)
+    ctl.note_applied(first, 1000)
+    later = ctl.decide(snap(1030, replicas_desired=2, replicas_ready=2), now=1030)
+    assert later.reconciliation == "reconcile_timeout"
+    assert ctl.state.acknowledged_target == 2
+    assert later.submit_scale is False
+
+
+def test_external_replica_change_becomes_the_new_baseline():
+    replies = [
+        '{"action": "SCALE_UP", "amount": 1, "reason": "up"}',
+        '{"action": "NO_CHANGE", "amount": 0, "reason": "ok"}',
+        '{"action": "NO_CHANGE", "amount": 0, "reason": "someone else"}',
+    ]
+    ctl = LLMAutoscaler(config(), FakeLLMClient(replies=replies))
+    first = ctl.decide(snap(1000, replicas_desired=2, replicas_ready=2), now=1000)
+    ctl.note_applied(first, 1000)
+    caught = ctl.decide(snap(1015, replicas_desired=first.validated_desired, replicas_ready=3), now=1015)
+    assert caught.reconciliation == "reconciled"
+    changed = ctl.decide(snap(1030, replicas_desired=1, replicas_ready=1), now=1030)
+    assert changed.reconciliation == "external_change"
+    assert ctl.state.acknowledged_target == 1
+
+
+def test_rejected_scale_does_not_move_the_accepted_target(monkeypatch):
+    from controllers.llm.main import run_once
+
+    def _deny(config, replicas):
+        raise RuntimeError("denied")
+
+    monkeypatch.setattr("controllers.llm.main.scale_to", _deny)
+    ctl = LLMAutoscaler(config(dry_run=False), FakeLLMClient(replies='{"action": "SCALE_UP", "amount": 1, "reason": "up"}'))
+    result = run_once(ctl, ctl.config, snap(datetime.now(timezone.utc).timestamp(), replicas_desired=2, cpu_utilization_pct=80))
+    assert result.submit_scale and result.applied is False
+    assert "denied" in result.apply_error
+    assert ctl.state.acknowledged_target is None
+
+
+def test_reset_clears_reconciliation_and_history():
+    ctl = LLMAutoscaler(config(), FakeLLMClient(replies='{"action": "SCALE_UP", "amount": 1, "reason": "up"}'))
+    first = ctl.decide(snap(1000, replicas_desired=2), now=1000)
+    ctl.note_applied(first, 1000)
+    ctl.reset()
+    assert ctl.state.acknowledged_target is None
+    assert ctl.state.observations() == []
+    assert ctl.state.reconciliation_pending is False
+
+
+def test_unready_requested_pods_block_another_scale_up_until_the_window_ends():
+    replies = [
+        '{"action": "SCALE_UP", "amount": 2, "reason": "up"}',
+        '{"action": "NO_CHANGE", "amount": 0, "reason": "wait"}',
+        '{"action": "SCALE_UP", "amount": 1, "reason": "still short"}',
+        '{"action": "SCALE_UP", "amount": 1, "reason": "window elapsed"}',
+    ]
+    ctl = LLMAutoscaler(config(fallback_startup_seconds=35), FakeLLMClient(replies=replies))
+    first = ctl.decide(snap(1000, replicas_desired=2, replicas_ready=2, cpu_utilization_pct=60), now=1000)
+    ctl.note_applied(first, 1000)
+    caught = ctl.decide(snap(1010, replicas_desired=4, replicas_ready=2, replicas_starting=2, cpu_utilization_pct=60), now=1010)
+    assert caught.reconciliation == "reconciled"
+    early = ctl.decide(snap(1020, replicas_desired=4, replicas_ready=2, replicas_starting=0, cpu_utilization_pct=60), now=1020)
+    assert early.validated_desired == 4 and early.submit_scale is False
+    late = ctl.decide(snap(1060, replicas_desired=4, replicas_ready=2, replicas_starting=0, cpu_utilization_pct=60), now=1060)
+    assert late.validated_desired == 5 and late.submit_scale
+
+
+def test_missing_readiness_does_not_invent_pending_pods():
+    cfg = config()
+    state = StateManager(cfg)
+    obs = observation_from_snapshot(snap(1000, replicas_desired=3, replicas_ready=None, replicas_starting=None), now=1000)
+    assert state.unready_requested(obs) is None
+    assert validate(5, obs, state, cfg, 1000)[0] == 5
+
+
+def test_scale_down_boundary_pause_and_vetoes():
+    cfg = config(scale_down_stabilization_seconds=120, minimum_seconds_between_scale_downs=30)
+    state = StateManager(cfg)
+    low = observation_from_snapshot(_low(1000, desired=4, ready=4), now=1000)
+    assert validate(1, low, state, cfg, 1000)[0] == 4
+    assert validate(1, low, state, cfg, 1119)[0] == 4
+    assert validate(1, low, state, cfg, 1120)[0] == 3
+
+    paused = StateManager(cfg)
+    assert validate(1, low, paused, cfg, 1000)[0] == 4
+    missing = observation_from_snapshot(snap(1030, replicas_desired=4, replicas_ready=4, cpu_utilization_pct=None), now=1030)
+    assert validate(1, missing, paused, cfg, 1030)[0] == 4
+    assert paused.low_demand_seconds(1060) == 30  # paused at the missing sample, gap not counted
+    assert validate(1, low, paused, cfg, 1120)[0] == 4
+    assert validate(1, low, paused, cfg, 1210)[0] == 3
+
+    hot_latency = observation_from_snapshot(
+        snap(1000, replicas_desired=4, cpu_utilization_pct=10, latency_p95_ms=400), now=1000,
+    )
+    assert validate(1, hot_latency, StateManager(config(scale_down_stabilization_seconds=0)), config(scale_down_stabilization_seconds=0), 1000)[0] == 4
+
+
+def test_brief_dip_and_alternating_demand_reset_the_timer():
+    cfg = config(scale_down_stabilization_seconds=120, minimum_seconds_between_scale_downs=0)
+    state = StateManager(cfg)
+    low = observation_from_snapshot(_low(1000, desired=4, ready=4), now=1000)
+    high = observation_from_snapshot(snap(1030, replicas_desired=4, cpu_utilization_pct=80), now=1030)
+    validate(1, low, state, cfg, 1000)
+    validate(1, high, state, cfg, 1030)
+    validate(1, low, state, cfg, 1060)
+    assert validate(1, low, state, cfg, 1179)[0] == 4
+    assert validate(1, low, state, cfg, 1180)[0] == 3
+
+
+def test_repeated_scale_down_respects_the_gap_between_downs():
+    cfg = config(scale_down_stabilization_seconds=0, minimum_seconds_between_scale_downs=30)
+    state = StateManager(cfg)
+    low = observation_from_snapshot(_low(1000, desired=4, ready=4), now=1000)
+    assert validate(1, low, state, cfg, 1000)[0] == 3
+    state.note_scale_down(1000)
+    assert validate(1, low, state, cfg, 1010)[0] == 4
+    assert validate(1, low, state, cfg, 1030)[0] == 3
+
+
+def test_hold_during_low_demand_does_not_reset_the_timer():
+    replies = ['{"action": "NO_CHANGE", "amount": 0, "reason": "fine"}'] * 3
+    ctl = LLMAutoscaler(config(minimum_seconds_between_scale_downs=0), FakeLLMClient(replies=replies))
+    ctl.decide(_low(1000, desired=4, ready=4), now=1000)
+    ctl.decide(_low(1060, desired=4, ready=4), now=1060)
+    assert ctl.state.low_demand_seconds(1120) == 120
+
+
+def test_rising_request_rate_is_not_low_demand():
+    cfg = config(scale_down_stabilization_seconds=0, minimum_seconds_between_scale_downs=0)
+    state = StateManager(cfg)
+    for i, rps in enumerate((5, 10, 15, 20)):
+        state.add(observation_from_snapshot(snap(1000 + i * 15, replicas_desired=4, cpu_utilization_pct=10, request_rate_rps=rps), now=1000 + i * 15))
+    obs = observation_from_snapshot(snap(1060, replicas_desired=4, cpu_utilization_pct=10, request_rate_rps=20), now=1060)
+    assert validate(1, obs, state, cfg, 1060)[0] == 4
+
+
+def test_history_mode_has_trends_without_forecast_or_notes():
+    client = FakeLLMClient(replies='{"desired_replicas": 2, "action": "hold", "reason": "ok"}')
+    ctl = LLMAutoscaler(
+        config(mode="llm_history"),
+        client,
+        ContextManager(("secret campaign",), None, received_at=1000),
+    )
+    ctl.decide(snap(1000, replicas_desired=2), now=1000)
+    assert "Trends" in client.prompts[0]
+    assert "Forecast:" not in client.prompts[0]
+    assert "secret" not in client.prompts[0]
+
+
+def test_decision_log_separates_recommendation_from_apply(capsys):
+    from controllers.llm.logging import emit
+
+    ctl = LLMAutoscaler(config(), FakeLLMClient(replies='{"action": "SCALE_UP", "amount": 1, "reason": "up"}'))
+    result = ctl.decide(snap(1000, replicas_desired=2, replicas_ready=2), now=1000)
+    emit(result)
+    line = capsys.readouterr().out
+    payload = json.loads(line)
+    assert payload["raw_desired"] == 3
+    assert payload["validated_desired"] == 3
+    assert payload["applied"] is False
+    assert payload["submit_scale"] is True
+    assert "ANTHROPIC" not in line and "api_key" not in line
+
+
+def test_concurrent_decisions_stay_serialized():
+    import threading
+
+    ctl = LLMAutoscaler(config(), FakeLLMClient(replies='{"action": "NO_CHANGE", "amount": 0, "reason": "ok"}'))
+    errors = []
+
+    def once():
+        try:
+            ctl.decide(snap(2000, replicas_desired=2), now=2000)
+        except Exception as exc:  # pragma: no cover - failure is the assertion
+            errors.append(exc)
+
+    threads = [threading.Thread(target=once) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
 
 
 def test_outcome_recorded_after_45s():

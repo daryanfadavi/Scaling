@@ -58,7 +58,14 @@ class StateManager:
         self._ready_at_request: int | None = None
         self._measured_startups: deque[float] = deque(maxlen=8)
         self._low_demand_since: float | None = None
+        self._low_demand_paused_at: float | None = None
         self._last_scale_down_at: float | None = None
+        self._acknowledged_target: int | None = None
+        self._acknowledged_at: float | None = None
+        self._awaiting_desired = False
+        self._last_observed_desired: int | None = None
+        self._last_observed_ready: int | None = None
+        self._last_scale_outcome = ""
 
     def reset(self) -> None:
         self._rows.clear()
@@ -69,7 +76,14 @@ class StateManager:
         self._ready_at_request = None
         self._measured_startups.clear()
         self._low_demand_since = None
+        self._low_demand_paused_at = None
         self._last_scale_down_at = None
+        self._acknowledged_target = None
+        self._acknowledged_at = None
+        self._awaiting_desired = False
+        self._last_observed_desired = None
+        self._last_observed_ready = None
+        self._last_scale_outcome = ""
 
     def add(self, obs: ClusterObservation) -> str:
         """Record one observation. Returns 'ok', 'duplicate', or 'out_of_order'."""
@@ -125,6 +139,81 @@ class StateManager:
         self._ready_at_request = ready
         self._actions.append({"unix_time": now, "requested_replicas": target, "ready_replicas": ready})
 
+    def note_scale_accepted(self, now: float, target: int, ready: int | None) -> None:
+        """Kubernetes accepted the scale command. Desired state may still be stale."""
+        self.note_scale_request(now, target, ready)
+        self._acknowledged_target = target
+        self._acknowledged_at = now
+        self._awaiting_desired = True
+        self._last_scale_outcome = "accepted"
+
+    def note_scale_failed(self, detail: str) -> None:
+        self._last_scale_outcome = f"failed: {detail}"[:300]
+
+    @property
+    def acknowledged_target(self) -> int | None:
+        return self._acknowledged_target
+
+    @property
+    def reconciliation_pending(self) -> bool:
+        return self._awaiting_desired
+
+    @property
+    def last_scale_outcome(self) -> str:
+        return self._last_scale_outcome
+
+    @property
+    def last_observed_desired(self) -> int | None:
+        return self._last_observed_desired
+
+    @property
+    def last_observed_ready(self) -> int | None:
+        return self._last_observed_ready
+
+    def reconcile(self, obs: ClusterObservation, now: float, timeout: float) -> str:
+        """Compare the snapshot's desired count with the last accepted scale.
+
+        Returns idle, desired_unknown, reconciled, pending, reconcile_timeout,
+        or external_change. A timeout or an outside change adopts the observed
+        count so a missed write cannot block the controller forever.
+        """
+        self._last_observed_desired = obs.desired_replicas
+        self._last_observed_ready = obs.ready_replicas
+        target = self._acknowledged_target
+        if target is None:
+            return "idle"
+        if obs.desired_replicas is None:
+            return "desired_unknown"
+        if obs.desired_replicas == target:
+            self._awaiting_desired = False
+            return "reconciled"
+        if not self._awaiting_desired:
+            self._acknowledged_target = obs.desired_replicas
+            self._acknowledged_at = now
+            self._last_scale_outcome = "external_change"
+            return "external_change"
+        age = None if self._acknowledged_at is None else now - self._acknowledged_at
+        if age is not None and age >= timeout:
+            self._acknowledged_target = obs.desired_replicas
+            self._acknowledged_at = now
+            self._awaiting_desired = False
+            self._last_scale_outcome = "reconcile_timeout"
+            return "reconcile_timeout"
+        return "pending"
+
+    def authoritative_desired(self, obs: ClusterObservation) -> int | None:
+        """Baseline for step limits. The accepted target wins until telemetry catches up."""
+        if self._awaiting_desired and self._acknowledged_target is not None:
+            return self._acknowledged_target
+        return obs.desired_replicas
+
+    def unready_requested(self, obs: ClusterObservation) -> int | None:
+        """Replicas we asked for that are not Ready yet. None when readiness is unknown."""
+        if self._scale_target is None or obs.ready_replicas is None:
+            return None
+        gap = self._scale_target - obs.ready_replicas
+        return gap if gap > 0 else None
+
     def note_scale_down(self, now: float) -> None:
         self._last_scale_down_at = now
 
@@ -156,17 +245,30 @@ class StateManager:
             self._scale_requested_at = None
             self._scale_target = None
 
-    def mark_demand(self, now: float, low: bool) -> None:
-        if low:
-            if self._low_demand_since is None:
+    def mark_demand(self, now: float, signal: str) -> None:
+        """signal is low, high, or unknown.
+
+        high resets the window. unknown pauses it (a missing sample does not
+        wipe time already accumulated). low resumes and keeps counting.
+        """
+        if signal == "low":
+            if self._low_demand_paused_at is not None and self._low_demand_since is not None:
+                self._low_demand_since += now - self._low_demand_paused_at
+                self._low_demand_paused_at = None
+            elif self._low_demand_since is None:
                 self._low_demand_since = now
-        else:
+                self._low_demand_paused_at = None
+        elif signal == "high":
             self._low_demand_since = None
+            self._low_demand_paused_at = None
+        elif self._low_demand_since is not None and self._low_demand_paused_at is None:
+            self._low_demand_paused_at = now
 
     def low_demand_seconds(self, now: float) -> float:
         if self._low_demand_since is None:
             return 0.0
-        return max(0.0, now - self._low_demand_since)
+        end = self._low_demand_paused_at if self._low_demand_paused_at is not None else now
+        return max(0.0, end - self._low_demand_since)
 
     def seconds_since_scale_down(self, now: float) -> float | None:
         if self._last_scale_down_at is None:

@@ -165,3 +165,18 @@ class CycleResult:
     applied: bool = False
     apply_error: str = ""
     invalid_model_output: bool = False
+    # Observation versus the last scale the cluster accepted. submit_scale is the
+    # only signal that a new scale command should be sent.
+    observed_ready: int | None = None
+    last_acknowledged_target: int | None = None
+    reconciliation: str = ""
+    submit_scale: bool = False
+    scale_outcome: str = ""
+    observation_unix_time: float | None = None
+    decision_unix_time: float | None = None
+    stale: bool = False
+    cpu_utilization_percent: float | None = None
+    requests_per_second: float | None = None
+    p95_latency_ms: float | None = None
+    error_rate: float | None = None
+    run_id: str = ""
