@@ -5,6 +5,14 @@ Goal: get the cluster running and do a short test run of `controllers/llm/`. Do 
 final numbers: Daryan collects those on one machine so results are comparable
 (see [setup.md](setup.md) and [controllers/README.md](../../controllers/README.md)).
 
+## Background reading
+
+[docs/phase1_run.html](../phase1_run.html) is the team's "SCALE LLM Track Update" page (open it in a browser):
+Phase 1 HPA results, research on how an LLM could run autoscaling, and the plan for the Nov 21 showcase.
+It is **history, not the current setup**: it describes the earlier kind cluster, a 1 to 8 replica range and an
+HPA-only run. The current setup (Minikube, 1 to 10 replicas, shared runner and telemetry) is in
+[setup.md](setup.md) and [controllers/README.md](../../controllers/README.md).
+
 ## Ground rules
 
 - **Work inside WSL2 (Ubuntu), in the Linux home folder** (`~/Scaling`), never under `/mnt/c`.
