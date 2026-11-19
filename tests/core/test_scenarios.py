@@ -13,7 +13,7 @@ from locust import LoadTestShape
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS_DIR = REPO_ROOT / "experiments" / "scenarios"
-NEW_SCENARIOS = ["step_up", "sudden_spike", "daily_wave", "random_bursts"]
+NEW_SCENARIOS = ["step_up", "sudden_spike", "daily_wave", "random_bursts", "busy_day"]
 MAX_USERS = 45  # ~10 pods at the HPA's 60% target (scenarios/README.md)
 
 
@@ -111,6 +111,24 @@ def test_random_bursts_are_fixed_and_inside_the_run():
         assert 0.025 <= end - start <= 0.075 + 1e-3
         assert 20 <= users <= 42
         previous_end = end
+
+
+def test_busy_day_parts():
+    module = importlib.import_module("busy_day")
+    assert module.BURSTS == module.make_bursts(module.SEED)  # same traffic every run
+    assert 3 <= len(module.BURSTS) <= 5
+    previous_end = 0.0
+    for start, end, extra in module.BURSTS:
+        assert previous_end <= start < end
+        assert 0.03 <= end - start <= 0.06 + 1e-3
+        assert 8 <= extra <= 15
+        assert end <= module.SPIKE_START or start >= module.SPIKE_END  # never inside the spike
+        assert end <= module.WAVE_END
+        previous_end = end
+    users = users_over_run(make_shape("busy_day", 900), 900)
+    assert max(users) == 40
+    assert set(users[int(0.40 * 900):int(0.55 * 900)]) == {40}  # the spike
+    assert set(users[int(0.80 * 900):]) == {10}                 # quiet end
 
 
 def test_new_scenarios_dont_reuse_simulator_names():
