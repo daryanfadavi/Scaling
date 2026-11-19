@@ -26,6 +26,12 @@ def test_plan_is_the_full_matrix_interleaved():
         "daily_wave": 600, "random_bursts": 600, "busy_day": 900}
 
 
+def test_plan_can_be_limited_to_some_scenarios():
+    runs = run_batch.plan(["busy_day"])
+    assert len(runs) == 8 and {r["scenario"] for r in runs} == {"busy_day"}
+    assert {r["duration_s"] for r in runs} == {900}
+
+
 def write_log(folder, ticks):
     folder.mkdir(parents=True)
     lines = [json.dumps({"event": "start", "model": "m"})] + [json.dumps(t) for t in ticks]

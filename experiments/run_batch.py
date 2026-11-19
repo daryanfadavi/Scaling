@@ -3,6 +3,7 @@
     python experiments/run_batch.py --dry-run    # print the plan and estimated finish time
     python experiments/run_batch.py              # run it (takes hours: see the estimate)
     python experiments/run_batch.py --resume     # skip runs whose results already exist
+    python experiments/run_batch.py --scenarios busy_day   # only some scenarios
 
 Each run is one call of experiments/run_experiment.py, so every run goes through
 exactly the same procedure (reset, settle, load test, telemetry, cleanup).
@@ -54,11 +55,13 @@ BAD_IN_A_ROW_TO_SKIP = 2    # this many BAD LLM runs in a row: skip the remainin
 # -----------------------------------------------------------------------------------
 
 
-def plan() -> list[dict]:
-    """The runs in order: repeat 1 of everything, then repeat 2, controllers rotating."""
+def plan(scenarios: list[str] | None = None) -> list[dict]:
+    """The runs in order: repeat 1 of everything, then repeat 2, controllers rotating.
+    `scenarios` limits the batch to some of SCENARIOS (with their durations)."""
+    chosen = {name: SCENARIOS[name] for name in scenarios} if scenarios else SCENARIOS
     runs = []
     for repeat in range(1, REPEATS + 1):
-        for i, (scenario, duration) in enumerate(SCENARIOS.items()):
+        for i, (scenario, duration) in enumerate(chosen.items()):
             shift = (i + repeat - 1) % len(CONTROLLERS)
             for controller in CONTROLLERS[shift:] + CONTROLLERS[:shift]:
                 runs.append({"scenario": scenario, "controller": controller,
@@ -127,9 +130,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--dry-run", action="store_true", help="print the plan, run nothing")
     parser.add_argument("--resume", action="store_true", help="skip runs whose results already exist")
+    parser.add_argument("--scenarios", nargs="+", choices=sorted(SCENARIOS),
+                        help="run only these scenarios (default: all)")
     args = parser.parse_args()
 
-    runs = plan()
+    runs = plan(args.scenarios)
     existing = [r for r in runs if run_dir(r).exists()]
     todo = [r for r in runs if not run_dir(r).exists()] if args.resume else runs
     if existing and not args.resume:
