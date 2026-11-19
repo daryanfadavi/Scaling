@@ -321,8 +321,21 @@ def test_llm_package_does_not_query_prometheus_itself():
     assert 'scale", f"deployment/' in main or "scale" in main
 
 
-def test_start_script_exists_for_the_runner():
-    assert (REPO / "controllers" / "llm" / "start.sh").is_file()
+def test_each_mode_is_its_own_plugin():
+    """The results folder is the plugin name, so the mode cannot be only an env var."""
+    plugins = {
+        "llm": ("llm", "0"),
+        "llm_context": ("llm_context", "0"),
+        "llm_history": ("llm_history", "0"),
+        "llm_predictive": ("llm_predictive", "0"),
+        "llm_predictive_context": ("llm_predictive_context", "0"),
+        "llm_fake": ("llm", "1"),
+    }
+    for folder, (mode, fake) in plugins.items():
+        text = (REPO / "controllers" / folder / "start.sh").read_text(encoding="utf-8")
+        assert f"export SCALE_LLM_MODE={mode}\n" in text
+        assert f"export SCALE_LLM_FAKE={fake}\n" in text
+        assert "python -m controllers.llm.main" in text
 
 
 def test_predictive_prompt_has_forecast_and_baseline_does_not():

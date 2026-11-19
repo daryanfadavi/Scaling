@@ -8,7 +8,7 @@ This controller runs as a **separate process** on your machine for the whole run
 ```
 controllers/llm/
 ├── README.md
-├── start.sh        # exec python -m controllers.llm.main   (runs until SIGTERM)
+├── start.sh        # sets this folder's mode, then runs until SIGTERM
 └── main.py         # loop: observe -> ask the model -> guardrails -> scale
 ```
 
@@ -27,10 +27,6 @@ The simulator's prompt, parser and guardrails in `controller/llm_controller.py` 
 `controller/llm_client.py` are a good starting point, but don't import experiment configs or
 scenario details: the controller must not know it's being evaluated.
 
-`llm` and `llm_context` (`SCALE_LLM_MODE`) use that camp prompt. `llm_history`,
-`llm_predictive`, and `llm_predictive_context` add trends, a capped request-rate
-forecast, and startup awareness. Notes, when the mode includes them, come from
-`SCALE_OPERATOR_NOTES`, not from scenario files. `SCALE_LLM_FAKE=1` skips the API.
 Missing snapshot fields stay missing (never filled in as zero). There is no memory metric.
 
 After `kubectl` accepts a scale, that target is remembered until a later snapshot
@@ -40,17 +36,34 @@ as the baseline. If the desired count does not catch up within
 `SCALE_LLM_RECONCILE_TIMEOUT_SECONDS` (default 60), the observed count is adopted.
 This process lock does not stop a different controller from scaling the same deployment.
 
-Run one mode through the shared runner (cluster already up, from the repo root):
+## Modes
+
+Each mode is its own plugin. `start.sh` sets the mode and whether the stand-in model is used, so a value already in the environment cannot change what gets recorded. The results folder is the plugin name: `experiments/results/<scenario>/<plugin>/`.
+
+| Run with `--controller` | What the model sees |
+|---|---|
+| `llm` | Current measurements |
+| `llm_context` | Current measurements, plus notes from `SCALE_OPERATOR_NOTES` |
+| `llm_history` | Recent trends |
+| `llm_predictive` | Trends and a capped request-rate forecast |
+| `llm_predictive_context` | That forecast, plus the same notes |
+| `llm_fake` | Same as `llm`, with a stand-in model and no API key |
 
 ```text
-python experiments/run_experiment.py --controller llm --scenario gradual_ramp --duration 180
+python experiments/run_experiment.py --controller llm_predictive --scenario gradual_ramp --duration 180
 ```
 
-Set `SCALE_LLM_MODE` to `llm`, `llm_context`, `llm_history`, `llm_predictive`, or
-`llm_predictive_context` before that command. Only `llm_context` and
-`llm_predictive_context` see `SCALE_OPERATOR_NOTES`. The runner writes
-`controller.log` next to `metrics.csv`. An existing `repeat_N` folder is skipped;
-pass `--repeat` with the next free number.
+Only `llm_context` and `llm_predictive_context` pass `SCALE_OPERATOR_NOTES` through. Those notes are typed in by hand. They are not read from scenario files. The runner writes `controller.log` next to `metrics.csv`. An existing `repeat_N` folder is skipped; pass `--repeat` with the next free number.
 
-Defaults, not tuned: scale-up step 3, scale-down step 1, 120 s before scale-down,
-replicas 1–10. Tests: `python -m pytest tests/core/test_llm_cluster_controller.py`.
+## Settings compared with HPA
+
+| | This controller | HPA (`controllers/hpa`) |
+|---|---|---|
+| Scale up | At most +3 replicas per 15 s step | At most +4 pods or +100% per 15 s, whichever is larger |
+| Scale down wait | 120 s of low demand | 300 s stabilization window |
+| Scale down size | 1 replica at a time, then 30 s before another | Up to −100% per 15 s after the wait |
+| Replicas | 1 to 10 | 1 to 10 |
+
+These are design choices, not tuned results. They change how many replicas get used, so a cost comparison with HPA has to state them.
+
+Tests: `python -m pytest tests/core/test_llm_cluster_controller.py`.

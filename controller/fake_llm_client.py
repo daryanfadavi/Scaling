@@ -1,8 +1,7 @@
-"""Wraps the camp LLMController without editing llm_controller.py.
+"""Fake LLM client for tests and the simulator's --fake-llm flag.
 
-FakeLLMClient implements the same complete() as LLMClient so --fake-llm
-works with no API key. ClusterLLMController is that same controller plus
-a SCALE_DOWN cooldown for the live Kubernetes loop.
+Same complete() shape as LLMClient, so no API key is required.
+The cluster smoke test is the llm_fake plugin, not this file.
 """
 
 from __future__ import annotations
@@ -11,42 +10,7 @@ import json
 import re
 from collections.abc import Sequence
 
-from controller.base import Observation
 from controller.llm_client import LLMResponse
-from controller.llm_controller import LLMController, ParsedAction
-
-SCALE_DOWN_COOLDOWN_TICKS = 4
-
-
-class ClusterLLMController(LLMController):
-    """Camp LLMController, with a cooldown on SCALE_DOWN after SCALE_UP."""
-
-    def reset(self) -> None:
-        super().reset()
-        self._last_scale_up_tick = None
-
-    def apply_guardrails(self, parsed: ParsedAction, obs: Observation) -> ParsedAction:
-        if parsed.invalid:
-            return parsed
-        if (
-            parsed.action == "SCALE_DOWN"
-            and self._last_scale_up_tick is not None
-            and obs.tick - self._last_scale_up_tick < SCALE_DOWN_COOLDOWN_TICKS
-        ):
-            waited = obs.tick - self._last_scale_up_tick
-            note = (
-                f"[guardrail: SCALE_DOWN blocked, {waited} ticks since "
-                f"SCALE_UP, need {SCALE_DOWN_COOLDOWN_TICKS}]"
-            )
-            return ParsedAction(
-                action="NO_CHANGE",
-                amount=0,
-                reason=f"{parsed.reason} {note}".strip(),
-                invalid=False,
-            )
-        if parsed.action == "SCALE_UP":
-            self._last_scale_up_tick = obs.tick
-        return parsed
 
 
 class FakeLLMClient:

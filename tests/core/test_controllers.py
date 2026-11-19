@@ -7,14 +7,8 @@ from pathlib import Path
 
 from controller.human import HumanController, QuitGame, parse_move
 from controller.llm_client import LLMResponse
-from controller.fake_llm_client import ClusterLLMController, FakeLLMClient
 from controller.llm_controller import LLMController, ParsedAction, action_to_target
 from controller.static import StaticController
-from experiments.k8s_run import (
-    cpu_pct_from_millicores,
-    parse_cpu_to_millicores,
-    replica_counts_from_deployment,
-)
 from tests.helpers import make_obs
 
 # ------------------------------------------------------------ static
@@ -138,31 +132,8 @@ def test_action_to_target(action, amount, expected):
     assert action_to_target(ParsedAction(action, amount), current_total=5) == expected
 
 
-def test_k8s_cpu_and_replica_parsers():
-    assert parse_cpu_to_millicores("100m") == 100.0
-    assert parse_cpu_to_millicores("1") == 1000.0
-    assert cpu_pct_from_millicores([126.0], 100.0) == 126.0
-    assert replica_counts_from_deployment(
-        {"spec": {"replicas": 4}, "status": {"readyReplicas": 1}}
-    ) == (1, 3, 4)
-
-
 def test_llm_controller_does_not_import_kubectl():
     text = Path("controller/llm_controller.py").read_text(encoding="utf-8")
     assert "kubectl" not in text
     assert "kubernetes" not in text.lower()
 
-
-def test_cluster_llm_blocks_scale_down_after_scale_up():
-    client = FakeLLMClient(
-        replies=[
-            '{"action": "SCALE_UP", "amount": 1, "reason": "up"}',
-            '{"action": "SCALE_DOWN", "amount": 1, "reason": "down"}',
-        ]
-    )
-    c = ClusterLLMController(client)
-    c.reset()
-    assert c.decide(make_obs(replicas_ready=3, tick=0)).target_replicas == 4
-    hold = c.decide(make_obs(replicas_ready=3, replicas_pending=1, tick=1))
-    assert hold.target_replicas == 4
-    assert "SCALE_DOWN blocked" in hold.info["reason"]

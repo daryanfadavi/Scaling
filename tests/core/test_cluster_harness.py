@@ -4,6 +4,7 @@ No cluster needed: Prometheus replies are faked."""
 import csv
 import importlib.util
 import math
+import os
 from pathlib import Path
 
 import pytest
@@ -82,9 +83,13 @@ def test_metrics_csv_writes_missing_as_empty_cell(tmp_path):
     assert math.isclose(float(written[0]["replicas_ready"]), 1.2346)
 
 
-def test_plugin_without_parts_counts_as_not_implemented():
+def test_plugin_without_parts_counts_as_not_implemented(tmp_path):
     runner = load_runner()
-    assert not any(runner.plugin_parts(REPO_ROOT / "controllers" / "phpa").values())
+    empty = tmp_path / "readme_only"
+    empty.mkdir()
+    assert not any(runner.plugin_parts(empty).values())
+    phpa = runner.plugin_parts(REPO_ROOT / "controllers" / "phpa")
+    assert phpa["apply"] and phpa["manifests"] and phpa["remove"]
     assert runner.plugin_parts(REPO_ROOT / "controllers" / "hpa")["manifests"]
     assert runner.plugin_parts(REPO_ROOT / "controllers" / "keda")["manifests"]
 
@@ -112,3 +117,71 @@ def test_runner_refuses_simulator_scenario_names(scenario, monkeypatch):
     Args.scenario = scenario
     with pytest.raises(SystemExit, match="simulator scenario"):
         runner.check_inputs(Args)
+
+
+def test_stop_controller_process_stops_and_reaps_the_group(tmp_path, monkeypatch):
+    runner = load_runner()
+    monkeypatch.setattr(runner, "PID_FILE", tmp_path / ".controller.pid")
+    monkeypatch.setattr(runner, "STOP_TIMEOUT_SECONDS", 5)
+    controller = tmp_path / "controllers" / "fake"
+    controller.mkdir(parents=True)
+    (controller / "start.sh").write_text("sleep 60 & wait\n")  # a child, like python under bash
+    monkeypatch.setattr(runner, "CONTROLLERS_DIR", tmp_path / "controllers")
+    monkeypatch.setattr(runner, "REPO_ROOT", tmp_path)
+    runner.apply_controller("fake", tmp_path)
+    process = runner.controller_process
+    pgid = process.pid
+
+    runner.stop_controller_process()  # used to raise PermissionError on macOS
+
+    assert not runner.PID_FILE.exists()
+    assert runner.controller_process is None
+    if hasattr(os, "killpg"):
+        assert not runner.process_group_exists(pgid)
+    else:
+        # Windows stops the tree with taskkill. There is no process group to query.
+        process.wait(timeout=5)
+        assert process.returncode is not None
+
+
+def test_stale_pid_file_is_cleaned_up(tmp_path, monkeypatch):
+    runner = load_runner()
+    monkeypatch.setattr(runner, "PID_FILE", tmp_path / ".controller.pid")
+    runner.PID_FILE.write_text("999999")  # a crashed earlier run; nothing with this pid
+    runner.stop_controller_process()
+    assert not runner.PID_FILE.exists()
+
+
+class FakeResult:
+    def __init__(self, returncode, stderr=""):
+        self.returncode, self.stderr, self.stdout = returncode, stderr, ""
+
+
+def test_delete_manifests_skips_kinds_that_are_not_installed(monkeypatch):
+    runner = load_runner()
+    missing = ('error: resource mapping not found for name: "scale-app" namespace: "scale" from "x.yaml": '
+               'no matches for kind "PredictiveHorizontalPodAutoscaler" in version "jamiethompson.me/v1alpha1"\n'
+               'ensure CRDs are installed first\n')
+    monkeypatch.setattr(runner.subprocess, "run", lambda *a, **k: FakeResult(1, missing))
+    runner.delete_manifests(REPO_ROOT / "controllers" / "hpa" / "manifests")  # no error
+
+
+def test_delete_manifests_still_fails_on_other_errors(monkeypatch):
+    runner = load_runner()
+    monkeypatch.setattr(runner.subprocess, "run",
+                        lambda *a, **k: FakeResult(1, "error: You must be logged in to the server\n"))
+    with pytest.raises(RuntimeError):
+        runner.delete_manifests(REPO_ROOT / "controllers" / "hpa" / "manifests")
+
+
+def test_apply_sh_runs_before_manifests(tmp_path, monkeypatch):
+    runner = load_runner()
+    controller = tmp_path / "controllers" / "op"
+    (controller / "manifests").mkdir(parents=True)
+    (controller / "apply.sh").write_text("")
+    monkeypatch.setattr(runner, "CONTROLLERS_DIR", tmp_path / "controllers")
+    calls = []
+    monkeypatch.setattr(runner, "run_script", lambda script: calls.append(script.name))
+    monkeypatch.setattr(runner, "kubectl", lambda *args, **k: calls.append(args[0]))
+    runner.apply_controller("op", tmp_path)
+    assert calls == ["apply.sh", "apply"]

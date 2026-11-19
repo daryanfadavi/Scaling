@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
-# Long-running LLM controller. The experiment runner sends SIGTERM to stop it.
+# The folder name is the result label. These two lines override the parent environment.
 cd "$(dirname "$0")/../.."
+export SCALE_LLM_MODE=llm
+export SCALE_LLM_FAKE=0
 exec python -m controllers.llm.main

@@ -93,19 +93,6 @@ Details: [cloud-env/README.md](../../cloud-env/README.md).
 ./scripts/teardown_cluster.sh      # deletes the cluster; results in experiments/results/ stay
 ```
 
-## LLM controller (in progress)
-
-The cluster experiment plugin lives in [`controllers/llm/`](../../controllers/llm/README.md) (`start.sh` is not implemented yet). Until that exists, you can still drive the camp LLM against a live Deployment with `experiments/k8s_run.py`: scrape CPU (and app metrics if present), call `decide()`, clamp, then `kubectl scale`. `--controller llm` is metrics-only; `--controller llm_context` also sees operator notes. `--fake-llm` needs no API key; a real run needs `ANTHROPIC_API_KEY` in `.env`.
-
-On the shared cluster, pass the `scale` context and namespace (the old default `scale-app` in `default` is gone):
-
-```bash
-python -m experiments.k8s_run --controller llm --disable-hpa --namespace scale --deployment scale-app --ticks 40 --fake-llm
-python -m experiments.k8s_run --controller llm_context --disable-hpa --namespace scale --deployment scale-app --scenario spike_with_warning --fake-llm
-```
-
-Use `kubectl --context scale` for any manual checks. `k8s_run` still calls `kubectl` without `--context`; set that context first (`kubectl config use-context scale`) or the commands will miss the cluster.
-
 ## Troubleshooting
 
 - **`Docker isn't running`:** start Docker Desktop, wait for it to be ready, rerun the setup script.
