@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Autoscaler: Track Presentation</title>
+<!--
+  One self-contained page (no libraries, fonts or internet needed). Open it in any browser.
+  Tabs: Overview · How it works · Phase 1 · Our tests · Research · Insights · Prompting.
+  Present with the left/right arrow keys. The "Speaker notes" switch shows short talking points per tab.
+
+  Where the numbers come from:
+    - Our tests:   experiments/results/gradual_ramp/llm/repeat_1/ (metrics.csv, controller.log) on 18 Nov 2026
+    - Phase 1:     docs/phase1_run.html (team page; earlier kind-cluster setup, kept as history)
+    - Research:    summary on docs/phase1_run.html + docs/onboarding/related_works.md. The detailed notes file it cites,
+                   docs/research/llm_controller_architectures.md, is not in the repo, so research numbers are the authors' claims,
+                   not re-checked by us.
+  To add a new test: copy one data array block in the script, or one <div class="card"> block, and edit the numbers from real results.
+-->
+<style>
+  :root {
+    --bg: #f5f5f2; --surface: #ffffff; --surface2: #f0f0eb; --text: #1b1b19; --muted: #5d5d57; --line: #e2e2db;
+    --blue: #2563c9; --orange: #c96a0a; --green: #1b7f4a; --red: #c0392b; --purple: #7a4bb8; --teal: #0e7c86;
+    --blue-bg: #e7effc; --orange-bg: #fbeedd; --green-bg: #e2f3e9; --red-bg: #fbe8e5; --purple-bg: #f0e9fa;
+    --shadow: 0 6px 24px rgba(0,0,0,.07);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111214; --surface: #1a1c1f; --surface2: #24262a; --text: #ecece8; --muted: #a3a59f; --line: #2d3034;
+      --blue: #78a9f7; --orange: #f0a04b; --green: #52c78d; --red: #f28b7e; --purple: #b99af0; --teal: #5cc6d0;
+      --blue-bg: #1b2a44; --orange-bg: #3a2a16; --green-bg: #16301f; --red-bg: #3a1c19; --purple-bg: #2b2140;
+      --shadow: 0 6px 24px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.3rem); line-height: 1.15; margin: 0 0 8px; letter-spacing: -.01em; }
+  h2 { font-size: 1.35rem; margin: 30px 0 6px; } h3 { font-size: 1.02rem; margin: 20px 0 6px; }
+  p { margin: 8px 0; } .muted { color: var(--muted); } .small { font-size: .88rem; }
+  code, .mono { font-family: var(--mono); font-size: .86em; background: var(--surface2); padding: 1px 6px; border-radius: 5px; }
+  pre { background: var(--surface2); padding: 12px 14px; border-radius: 10px; overflow-x: auto; font: .84rem/1.55 var(--mono); margin: 8px 0; }
+  pre code { background: none; padding: 0; }
+  a { color: var(--blue); }
+
+  /* ---------- top bar ---------- */
+  .top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .top .wrap { display: flex; align-items: center; gap: 14px; padding-top: 10px; padding-bottom: 10px; }
+  .brand { font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
+  .brand i { font-style: normal; color: var(--blue); }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; flex: 1; scrollbar-width: none; padding: 2px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { appearance: none; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: inherit; font-size: .9rem; font-weight: 600;
+         padding: 6px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: all .2s; }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 3px 12px color-mix(in srgb, var(--blue) 40%, transparent); }
+  @media (prefers-color-scheme: dark) { .tab[aria-selected="true"] { color: #0b1220; } }
+  .switch { display: flex; align-items: center; gap: 7px; font-size: .84rem; color: var(--muted); white-space: nowrap; cursor: pointer; user-select: none; }
+  .progress { height: 3px; background: var(--line); } .progress i { display: block; height: 100%; width: 0; background: var(--blue); transition: width .4s ease; }
+
+  /* ---------- panels ---------- */
+  .panel { padding: 30px 0 90px; animation: rise .5s ease both; }
+  .panel[hidden] { display: none; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .eyebrow { font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--blue); margin-bottom: 6px; }
+  .lede { font-size: 1.1rem; color: var(--muted); max-width: 66ch; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .grid { display: grid; gap: 12px; } .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); } .g3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .g4 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .stagger > * { animation: rise .55s ease both; } .stagger > *:nth-child(2) { animation-delay: .07s; } .stagger > *:nth-child(3) { animation-delay: .14s; }
+  .stagger > *:nth-child(4) { animation-delay: .21s; } .stagger > *:nth-child(5) { animation-delay: .28s; } .stagger > *:nth-child(6) { animation-delay: .35s; }
+  .tile > b { display: block; font-size: 2rem; line-height: 1.1; letter-spacing: -.02em; } .tile > span { color: var(--muted); font-size: .86rem; }
+  .tile.good > b { color: var(--green); } .tile.warn > b { color: var(--orange); } .tile.blue > b { color: var(--blue); }
+  .tag { display: inline-block; font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; vertical-align: middle; margin-left: 6px; }
+  .tag.pass { background: var(--green-bg); color: var(--green); } .tag.found { background: var(--orange-bg); color: var(--orange); }
+  .tag.info { background: var(--blue-bg); color: var(--blue); } .tag.bad { background: var(--red-bg); color: var(--red); } .tag.new { background: var(--purple-bg); color: var(--purple); }
+  .callout { border-left: 4px solid var(--blue); background: var(--blue-bg); padding: 11px 15px; border-radius: 0 12px 12px 0; margin: 14px 0; }
+  .callout.warn { border-color: var(--orange); background: var(--orange-bg); } .callout.bad { border-color: var(--red); background: var(--red-bg); }
+  .callout.good { border-color: var(--green); background: var(--green-bg); } .callout.new { border-color: var(--purple); background: var(--purple-bg); }
+  .callout p { margin: 4px 0; }
+  ul.tight { margin: 6px 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.up td { background: var(--orange-bg); font-weight: 600; }
+  table.kv td:first-child { color: var(--muted); width: 32%; }
+  details { margin: 12px 0; } summary { cursor: pointer; font-weight: 600; }
+  button.btn { appearance: none; font: inherit; font-weight: 700; font-size: .9rem; padding: 7px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; transition: all .15s; }
+  button.btn:hover { border-color: var(--blue); } button.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.btn.primary { color: #0b1220; } }
+  button.btn:disabled { opacity: .45; cursor: default; }
+  select, input[type=range] { font: inherit; accent-color: var(--blue); }
+  select { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+
+  .notes { display: none; border: 1px dashed var(--purple); background: var(--purple-bg); border-radius: 12px; padding: 10px 16px; margin: 16px 0; }
+  body.show-notes .notes { display: block; } .notes b { color: var(--purple); } .notes ul { margin: 4px 0 2px; padding-left: 20px; }
+
+  /* ---------- overview ---------- */
+  .road { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0 8px; }
+  .road::before { content: ""; position: absolute; left: 16%; right: 16%; top: 19px; height: 4px; background: var(--line); border-radius: 4px; }
+  .road .fill { position: absolute; left: 16%; top: 19px; height: 4px; background: var(--blue); border-radius: 4px; width: 0; transition: width 1.6s cubic-bezier(.2,.8,.2,1); }
+  .road .stop { position: relative; text-align: center; padding: 0 6px; }
+  .road .dot { width: 42px; height: 42px; border-radius: 50%; margin: 0 auto 8px; display: grid; place-items: center; font-weight: 800; background: var(--surface); border: 3px solid var(--line); position: relative; z-index: 1; }
+  .road .stop.done .dot { background: var(--green); border-color: var(--green); color: #fff; }
+  .road .stop.now .dot { border-color: var(--blue); color: var(--blue); animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 50%, transparent); } 70% { box-shadow: 0 0 0 14px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  .road small { color: var(--muted); display: block; }
+
+  /* ---------- how it works ---------- */
+  .scene svg text { fill: var(--text); font-family: system-ui, sans-serif; } .scene svg .mut { fill: var(--muted); }
+  .box { fill: var(--surface); stroke: var(--text); stroke-opacity: .5; stroke-width: 1.4; } .box.blue { fill: var(--blue-bg); stroke: var(--blue); stroke-opacity: 1; }
+  .box.orange { fill: var(--orange-bg); stroke: var(--orange); stroke-opacity: 1; }
+  .flowline { stroke: var(--text); stroke-opacity: .55; stroke-width: 1.8; fill: none; stroke-dasharray: 6 6; animation: dash 1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -12; } }
+  .podsq { fill: var(--blue); } .podsq.new { animation: pop 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes pop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+  .stepper { display: grid; grid-template-columns: 230px 1fr; gap: 14px; margin-top: 12px; }
+  @media (max-width: 720px) { .stepper { grid-template-columns: 1fr; } }
+  .steps { display: flex; flex-direction: column; gap: 6px; }
+  .stepbtn { text-align: left; appearance: none; font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 10px; padding: 9px 12px; cursor: pointer; display: flex; gap: 10px; align-items: center; transition: all .2s; }
+  .stepbtn i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; background: var(--surface2); display: grid; place-items: center; font-weight: 800; font-size: .78rem; flex: none; }
+  .stepbtn.on { border-color: var(--blue); background: var(--blue-bg); } .stepbtn.on i { background: var(--blue); color: #fff; }
+  .stepbtn.done i { background: var(--green); color: #fff; }
+  .stage { min-height: 250px; } .stage h3 { margin-top: 0; }
+  .typing { overflow: hidden; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; background: var(--surface2); }
+  .pods10 { display: flex; gap: 5px; flex-wrap: wrap; margin: 6px 0; }
+  .pods10 i { width: 22px; height: 22px; border-radius: 5px; background: var(--surface2); border: 1px dashed var(--line); transition: all .35s; }
+  .pods10 i.on { background: var(--blue); border: 1px solid var(--blue); } .pods10 i.add { background: var(--green); border-color: var(--green); transform: scale(1.12); }
+  .pods10 i.rem { background: var(--red-bg); border: 1px dashed var(--red); }
+  .verdict { font-weight: 700; padding: 10px 14px; border-radius: 10px; margin-top: 10px; }
+  .verdict.ok { background: var(--green-bg); color: var(--green); } .verdict.hold { background: var(--orange-bg); color: var(--orange); } .verdict.none { background: var(--surface2); color: var(--muted); }
+  .ctl { display: grid; grid-template-columns: 150px 1fr 64px; gap: 8px 12px; align-items: center; font-size: .92rem; margin: 6px 0; }
+  .ctl output { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+
+  /* ---------- charts ---------- */
+  .chartbox { position: relative; } .chartbox svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { font-family: system-ui, sans-serif; }
+  .ax { fill: var(--muted); font-size: 11px; } .ttl { fill: var(--text); font-size: 12px; font-weight: 700; }
+  .g { stroke: var(--line); stroke-width: 1; } .band { fill: var(--blue); opacity: .07; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: .82rem; box-shadow: var(--shadow); display: none; white-space: nowrap; z-index: 3; }
+  .tip .t { color: var(--muted); font-size: .74rem; }
+  .draw { transition: stroke-dashoffset 1.6s cubic-bezier(.3,.7,.2,1); } .areafade { opacity: 0; transition: opacity 1.2s .5s; } .areafade.in { opacity: 1; }
+  .legend { color: var(--muted); font-size: .84rem; display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0; }
+  .legend em { font-style: normal; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ---------- sub tabs ---------- */
+  .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0 14px; }
+  .sub { appearance: none; font: inherit; font-size: .88rem; font-weight: 700; padding: 6px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .sub[aria-selected="true"] { color: var(--text); border-color: var(--blue); background: var(--blue-bg); }
+  .subpanel[hidden] { display: none; } .subpanel { animation: rise .4s ease both; }
+
+  /* ---------- bug flow ---------- */
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 10px 0; }
+  .flow .node { border-radius: 12px; padding: 10px 14px; font-size: .9rem; background: var(--surface2); flex: 1 1 140px; opacity: .25; transform: translateY(8px); transition: all .5s; }
+  .flow .node.show { opacity: 1; transform: none; } .flow .node small { display: block; color: var(--muted); }
+  .flow .node.bad { background: var(--red-bg); } .flow .node.good { background: var(--green-bg); }
+  .flow .go { align-self: center; color: var(--muted); font-size: 1.3rem; opacity: .25; transition: opacity .5s; } .flow .go.show { opacity: 1; }
+  .rowlabel { font-weight: 800; font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 0; }
+  .checks { list-style: none; padding: 0; margin: 8px 0; } .checks li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); opacity: .2; transform: translateX(-8px); transition: all .45s; }
+  .checks li.show { opacity: 1; transform: none; } .checks li b { min-width: 170px; } .checks li .ok { color: var(--green); font-weight: 800; }
+
+  /* ---------- replay ---------- */
+  .ctrls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 12px; }
+  .ctrls input[type=range] { flex: 1; min-width: 160px; } .clock { font: 700 .95rem var(--mono); min-width: 74px; }
+  .replay { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 820px) { .replay { grid-template-columns: 1fr; } }
+  .podsbig { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 8px 0 4px; }
+  .pod { aspect-ratio: 1.25; border-radius: 10px; border: 2px dashed var(--line); background: var(--surface2); display: grid; place-items: center; font-size: .7rem; color: var(--muted); font-weight: 700; transition: background .4s, border-color .4s; }
+  .pod.starting { border: 2px dashed var(--orange); background: var(--orange-bg); color: var(--orange); }
+  .pod.ready { border: 2px solid var(--blue); background: var(--blue-bg); color: var(--blue); animation: pop2 .6s ease; }
+  @keyframes pop2 { 0% { transform: scale(.7); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
+  .meter { margin: 9px 0; } .meter .lab { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); } .meter .lab b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .meter .track { height: 12px; background: var(--surface2); border-radius: 8px; position: relative; overflow: hidden; } .meter .bar { height: 100%; border-radius: 8px; width: 0; transition: width .25s linear; }
+  .meter .mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--red); }
+  .feed { height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; scroll-behavior: smooth; }
+  .fcard { border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; font-size: .86rem; background: var(--surface); animation: rise .4s ease both; }
+  .fcard.up { border-color: var(--orange); background: var(--orange-bg); } .fcard.idle { opacity: .7; }
+  .fcard .h { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; } .fcard .s { color: var(--muted); font-size: .78rem; }
+  .fcard q { display: block; font-style: italic; color: var(--muted); margin-top: 3px; quotes: none; }
+  .banner { border-left: 4px solid var(--blue); background: var(--blue-bg); padding: 10px 14px; border-radius: 0 12px 12px 0; min-height: 64px; transition: background .3s, border-color .3s; }
+  .banner.alert { border-color: var(--orange); background: var(--orange-bg); } .banner.bad { border-color: var(--red); background: var(--red-bg); }
+  .chart .dec { stroke: var(--orange); stroke-width: 1.4; stroke-dasharray: 4 3; } .chart .declbl { fill: var(--orange); font-size: 11px; font-weight: 700; }
+  .chart .plan { stroke: var(--muted); stroke-width: 1.6; stroke-dasharray: 5 4; fill: none; } .chart .l1 { stroke: var(--blue); stroke-width: 2.2; fill: none; } .chart .d1 { fill: var(--blue); }
+  .chart .l2 { stroke: var(--green); stroke-width: 2.6; fill: none; } .chart .l3 { stroke: var(--purple); stroke-width: 2.2; fill: none; } .chart .d3 { fill: var(--purple); }
+  .chart .l4 { stroke: var(--orange); stroke-width: 2.2; fill: none; } .chart .d4 { fill: var(--orange); } .chart .lim { stroke: var(--red); stroke-width: 1.6; stroke-dasharray: 6 4; }
+  .chart .limlbl { fill: var(--red); font-weight: 700; font-size: 11px; } .chart .ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+  .chart .cursor { stroke: var(--text); stroke-width: 1.5; opacity: .7; }
+
+  /* ---------- research ---------- */
+  .fam { cursor: pointer; transition: transform .2s, box-shadow .2s; position: relative; } .fam:hover { transform: translateY(-3px); }
+  .fam .emoji { font-size: 1.8rem; display: block; } .fam .tg { display: inline-block; font-size: .72rem; font-weight: 800; color: var(--blue); border: 1px solid var(--blue); border-radius: 6px; padding: 0 6px; margin-bottom: 4px; }
+  .fam.ours { outline: 2px solid var(--blue); outline-offset: -1px; } .fam .more { max-height: 0; overflow: hidden; transition: max-height .4s; color: var(--muted); font-size: .88rem; } .fam.open .more { max-height: 220px; }
+  .fam .hint { font-size: .76rem; color: var(--muted); margin-top: 6px; }
+  .bars { display: grid; gap: 9px; margin-top: 12px; } .brow { display: grid; grid-template-columns: 200px 1fr 64px; gap: 10px; align-items: center; font-size: .86rem; }
+  .brow .name { text-align: right; color: var(--muted); } .btrack { height: 20px; } .bar2 { height: 100%; border-radius: 0 5px 5px 0; background: var(--line); width: 0; transition: width 1.3s cubic-bezier(.2,.8,.2,1); min-width: 3px; }
+  .bar2.ahead { background: var(--blue); } .brow .val { font-weight: 800; font-variant-numeric: tabular-nums; }
+  @media (max-width: 600px) { .brow { grid-template-columns: 110px 1fr 54px; } }
+  .paper h3 { margin: 0 0 2px; } .paper .meta { color: var(--muted); font-size: .78rem; margin-bottom: 8px; } .paper .row { font-size: .9rem; margin: 6px 0; color: var(--muted); } .paper .row b { color: var(--text); }
+  .paper .careful { margin-top: 8px; font-size: .84rem; color: var(--muted); border-left: 3px solid var(--orange); padding-left: 10px; }
+  .vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; } .vs .mid { font-weight: 800; color: var(--muted); }
+  @media (max-width: 620px) { .vs { grid-template-columns: 1fr; } .vs .mid { text-align: center; } }
+
+  /* ---------- insights ---------- */
+  .prio { display: grid; grid-template-columns: 44px 1fr; gap: 12px; }
+  .prio .p { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--blue); color: #fff; }
+  @media (prefers-color-scheme: dark) { .prio .p { color: #0b1220; } }
+  .prio h3 { margin: 0; } .meta2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .matrix { min-width: 640px; } .matrix td, .matrix th { text-align: center; } .matrix td:first-child, .matrix th:first-child { text-align: left; }
+  .chip { display: inline-block; font-size: .74rem; font-weight: 700; padding: 3px 9px; border-radius: 8px; white-space: nowrap; }
+  .chip.smoke { background: var(--orange-bg); color: var(--orange); } .chip.ready { background: var(--blue-bg); color: var(--blue); } .chip.need { background: var(--surface2); color: var(--muted); }
+  .dd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } @media (max-width: 700px) { .dd { grid-template-columns: 1fr; } }
+  .dd h3 { margin-top: 0; } .do li::marker { color: var(--green); } .dont li::marker { color: var(--red); }
+  footer { color: var(--muted); font-size: .82rem; padding: 30px 0 60px; border-top: 1px solid var(--line); }
+  /* ---------- meeting / prompting tab ---------- */
+  .ladder { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; }
+  .ladder .go { align-self: center; font-size: 1.5rem; color: var(--muted); animation: nudge 1.6s ease-in-out infinite; }
+  @keyframes nudge { 0%,100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
+  @media (max-width: 820px) { .ladder { grid-template-columns: 1fr; } .ladder .go { transform: rotate(90deg); justify-self: center; animation: none; } }
+  .rung h3 { margin: 8px 0 4px; } .rung .spec { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .84rem; color: var(--muted); margin: 4px 0 8px; } .rung .spec b { color: var(--text); }
+  .vpills { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .vpill { appearance: none; font: inherit; font-size: .86rem; font-weight: 700; padding: 6px 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .vpill[aria-selected="true"] { color: var(--text); border-color: var(--blue); background: var(--blue-bg); }
+  .promptbox { white-space: pre-wrap; font-size: .78rem; max-height: 360px; overflow: auto; }
+  .promptbox mark { background: color-mix(in srgb, var(--orange) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; display: inline-block; }
+  .lbars { display: grid; gap: 8px; margin-top: 10px; }
+  .lrow { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer; }
+  .lrow:hover { border-color: var(--blue); }
+  .lrow .top { display: grid; grid-template-columns: 150px 1fr 110px; gap: 12px; align-items: center; }
+  @media (max-width: 640px) { .lrow .top { grid-template-columns: 1fr; gap: 6px; } }
+  .lrow .nm { font-weight: 700; font-size: .88rem; } .lrow .ok { font-size: .8rem; font-weight: 800; text-align: right; } .lrow .ok.good { color: var(--green); } .lrow .ok.bad { color: var(--red); } .lrow .ok.na { color: var(--muted); font-weight: 600; }
+  .stack { display: flex; height: 26px; border-radius: 8px; overflow: hidden; background: var(--surface2); }
+  .seg { width: 0; display: grid; place-items: center; font-size: .74rem; font-weight: 800; color: #1b1b19; white-space: nowrap; transition: width 1s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+  .seg.hold { background: var(--line); color: var(--text); } .seg.up { background: var(--orange); } .seg.down { background: var(--teal); } .seg.bad { background: var(--red); color: #fff; }
+  .lrow .why { display: none; margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; } .lrow.open .why { display: block; }
+  .why div { font-size: .83rem; margin: 5px 0; color: var(--muted); } .why b { color: var(--text); }
+  .why .pill2 { display: inline-block; font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: var(--surface2); color: var(--text); margin-right: 6px; }
+  .why .pill2.up { background: var(--orange-bg); color: var(--orange); }
+  .runchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: .8rem; color: var(--text); user-select: none; }
+  .runchip i { width: 12px; height: 4px; border-radius: 2px; display: inline-block; } .runchip.off { opacity: .4; text-decoration: line-through; }
+  td .warnchip { color: var(--orange); font-weight: 800; }
+  .pill2 { display: inline-block; font-size: .72rem; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: var(--surface2); color: var(--text); margin: 1px 4px 1px 0; white-space: nowrap; }
+  td.hot { color: var(--orange); font-weight: 800; }
+  #hTable td:first-child, #cTable td:first-child { white-space: nowrap; }
+  .tile.bad > b { color: var(--red); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="wrap">
+    <div class="brand">SCALE <i>·</i> LLM track</div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-tab="overview">1 · Overview</button>
+      <button class="tab" role="tab" data-tab="how">2 · How it works</button>
+      <button class="tab" role="tab" data-tab="phase1">3 · Phase 1</button>
+      <button class="tab" role="tab" data-tab="tests">4 · Our tests</button>
+      <button class="tab" role="tab" data-tab="research">5 · Research</button>
+      <button class="tab" role="tab" data-tab="insights">6 · Insights</button>
+      <button class="tab" role="tab" data-tab="meeting">7 · Prompting</button>
+    </div>
+    <label class="switch"><input type="checkbox" id="notesToggle"> Speaker notes</label>
+  </div>
+  <div class="progress"><i id="prog"></i></div>
+</div>
+
+<main class="wrap">
+
+<!-- =================================================================== 1 · OVERVIEW -->
+<section class="panel" id="p-overview" hidden>
+  <div class="eyebrow">Where we are · 18 Nov 2026</div>
+  <h1>Can an AI model run cloud autoscaling as well as Kubernetes?</h1>
+  <p class="lede">Cloud apps add and remove copies of themselves as traffic changes. Today that is mostly done by fixed rules ("add a copy if CPU is over 60%"). We are testing whether a language model can do it better, especially when a human tells it something a CPU graph can't, like <i>"a marketing campaign starts in 90 seconds."</i></p>
+
+  <div class="road" id="road">
+    <div class="fill" id="roadfill"></div>
+    <div class="stop done"><div class="dot">✓</div><b>Phase 1</b><small>Local Kubernetes + HPA works<br>done 4 Nov</small></div>
+    <div class="stop now"><div class="dot">2</div><b>Phase 2</b><small>Our own controllers, fair comparisons<br><b>we are here</b></small></div>
+    <div class="stop"><div class="dot">3</div><b>Phase 3</b><small>Validate on a real cloud<br>if budget allows</small></div>
+  </div>
+
+  <div class="grid g4 stagger" style="margin-top:22px">
+    <div class="card tile good"><b data-count="244">0</b><span>tests passing across the whole project</span></div>
+    <div class="card tile blue"><b data-count="17">0</b><span>live decisions by the model</span></div>
+    <div class="card tile good"><b><span data-count="5202">0</span></b><span>requests served in the test run, <b style="color:var(--green)">0 failed</b></span></div>
+    <div class="card tile warn"><b>1 bug</b><span>found on the first live API call, then fixed</span></div>
+  </div>
+
+  <h2>The story in five lines</h2>
+  <div class="grid g3 stagger">
+    <div class="card"><b>1 · Baseline works</b><p class="muted small">Phase 1: Kubernetes' standard autoscaler (HPA) took an app from 1 pod to 3 and back to 1 under a load ramp, with zero failed requests.</p></div>
+    <div class="card"><b>2 · We built the LLM controller</b><p class="muted small">Every 15 s it reads the metrics, asks Claude Haiku 4.5 what to do, checks the answer, and only then scales. It can never leave 1 to 10 pods.</p></div>
+    <div class="card"><b>3 · First live test found a bug</b><p class="muted small">The API refused a setting we sent, so every call would have failed. The controller would have looked calm, not broken. Fixed.</p></div>
+    <div class="card"><b>4 · First end-to-end run worked</b><p class="muted small">17 decisions, 2 scale-ups, no errors. One scale-up was good; the other looks like a mistake caused by lagging averages.</p></div>
+    <div class="card"><b>5 · Next: harder tests</b><p class="muted small">The ramp was too gentle to test the real goal. Next are harsher load shapes, repeats, fair controls, and giving the model operator context.</p></div>
+    <div class="card"><b>6 · We built the prompt-testing loop</b><p class="muted small">Four prompt variants, a prompt lab that replays real situations in seconds, and a scoring script for cluster runs. First results are on tab 7.</p></div>
+  </div>
+
+  <div class="callout warn"><p><b>Be careful with claims.</b> Everything about our own controller comes from one 3-minute run on one laptop. It shows the pipeline works. It does not show that the LLM is better or worse than HPA.</p></div>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>The question is not "does the LLM win?" A valid result is "HPA wins, except when X".</li>
+    <li>Phase 1 is finished; we are early in Phase 2. Today's results are a smoke test.</li>
+    <li>Walk the five cards left to right, then go to the next tab.</li>
+  </ul></div>
+</section>
+
+<!-- =================================================================== 2 · HOW IT WORKS -->
+<section class="panel" id="p-how" hidden>
+  <div class="eyebrow">The system</div>
+  <h1>How the LLM controller works</h1>
+  <p class="lede">The model suggests. Plain code decides. Its answer passes through two checks before any pod changes.</p>
+
+  <div class="card scene"><div class="scroll">
+    <svg viewBox="0 0 720 300" role="img" aria-label="Locust sends load to the app pods. Prometheus scrapes the pods. The LLM controller reads Prometheus and scales the pods." style="min-width:620px;width:100%;height:auto">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--text);fill-opacity:.7"/></marker></defs>
+      <rect class="box" x="270" y="14" width="180" height="56" rx="10"/><text x="360" y="38" text-anchor="middle" font-size="14" font-weight="700">Prometheus</text><text x="360" y="56" text-anchor="middle" font-size="12" class="mut">stores the app's numbers</text>
+      <rect class="box blue" x="270" y="118" width="180" height="76" rx="10"/><text x="360" y="140" text-anchor="middle" font-size="14" font-weight="700">The app (scale-app)</text>
+      <rect class="podsq" x="318" y="156" width="22" height="22" rx="4"/><rect class="podsq" x="349" y="156" width="22" height="22" rx="4"/><rect class="podsq new" x="380" y="156" width="22" height="22" rx="4"/>
+      <text x="360" y="190" text-anchor="middle" font-size="11" class="mut">pods: 1 to 10 copies</text>
+      <rect class="box" x="540" y="118" width="164" height="76" rx="10"/><text x="622" y="146" text-anchor="middle" font-size="14" font-weight="700">Locust</text><text x="622" y="164" text-anchor="middle" font-size="12" class="mut">simulated users</text><text x="622" y="180" text-anchor="middle" font-size="12" class="mut">send requests</text>
+      <rect class="box orange" x="270" y="232" width="180" height="56" rx="10"/><text x="360" y="256" text-anchor="middle" font-size="14" font-weight="700">LLM controller</text><text x="360" y="274" text-anchor="middle" font-size="12" class="mut">our code, every 15 s</text>
+      <line class="flowline" x1="540" y1="156" x2="452" y2="156" marker-end="url(#ah)"/><text x="496" y="146" text-anchor="middle" font-size="11" class="mut">load</text>
+      <line class="flowline" x1="360" y1="116" x2="360" y2="72" marker-end="url(#ah)"/><text x="368" y="98" font-size="11" class="mut">metrics, every 15 s</text>
+      <path class="flowline" d="M268,42 H150 V260 H268" marker-end="url(#ah)"/><text x="142" y="146" text-anchor="end" font-size="11" class="mut">controller reads</text><text x="142" y="160" text-anchor="end" font-size="11" class="mut">the latest numbers</text>
+      <line class="flowline" x1="360" y1="230" x2="360" y2="196" marker-end="url(#ah)"/><text x="368" y="218" font-size="11" class="mut">kubectl scale: add or remove pods</text>
+    </svg></div></div>
+
+  <h2>Walk through one decision <span class="tag info">Real data: tick 9 of our run</span></h2>
+  <p class="muted">Click through the five steps, or press Play. The numbers are from the moment the model added its first pods.</p>
+  <div class="ctrls"><button class="btn primary" id="stepPlay">▶ Play</button><button class="btn" id="stepPrev">← Back</button><button class="btn" id="stepNext">Next →</button></div>
+  <div class="stepper">
+    <div class="steps" id="steps"></div>
+    <div class="card stage" id="stage"></div>
+  </div>
+
+  <h2>Try the guardrails yourself <span class="tag new">Interactive</span></h2>
+  <p class="muted">This mirrors the real rules in <code>controllers/llm/main.py</code>: 1 to 10 pods, 30 s pause after any change, 120 s before removing pods. Change the model's answer and see what actually happens.</p>
+  <div class="card">
+    <div class="ctl"><label for="gAction">The model says</label>
+      <select id="gAction"><option value="SCALE_UP">SCALE_UP</option><option value="SCALE_DOWN">SCALE_DOWN</option><option value="NO_CHANGE">NO_CHANGE</option><option value="garbled">garbled text (not JSON)</option><option value="range">amount outside 1 to 3 (e.g. 7)</option></select><span></span></div>
+    <div class="ctl"><label for="gAmount">by how many pods</label><input type="range" id="gAmount" min="1" max="3" value="2"><output id="oAmount">2</output></div>
+    <div class="ctl"><label for="gCur">pods right now</label><input type="range" id="gCur" min="1" max="10" value="3"><output id="oCur">3</output></div>
+    <div class="ctl"><label for="gSince">seconds since last change</label><input type="range" id="gSince" min="0" max="200" value="200"><output id="oSince">never</output></div>
+    <div class="small muted" style="margin:-2px 0 6px 162px">Slide right to the end for "never scaled before".</div>
+    <div class="grid g2" style="margin-top:8px"><div><b class="small muted">NOW</b><div class="pods10" id="gBefore"></div></div><div><b class="small muted">AFTER THE GUARDRAILS</b><div class="pods10" id="gAfter"></div></div></div>
+    <div class="verdict" id="gVerdict"></div>
+  </div>
+  <div class="callout"><p>The model never talks to Kubernetes. Garbled, out-of-range or blocked answers all end as "do nothing". The only code that can change the pod count is the final <code>scale_to()</code>, which checks the 1 to 10 bounds a second time.</p></div>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>Observe, ask, check, guardrails, act. Only the last step touches Kubernetes.</li>
+    <li>Use the sliders to show a blocked scale-down: the model can be wrong and nothing bad happens.</li>
+    <li>The model is never told which test is running or what load is coming.</li>
+  </ul></div>
+</section>
+
+<!-- =================================================================== 3 · PHASE 1 -->
+<section class="panel" id="p-phase1" hidden>
+  <div class="eyebrow">History · 4 Nov 2026</div>
+  <h1>Phase 1: Kubernetes' own autoscaler works</h1>
+  <p class="lede">The baseline we are trying to beat: HPA keeps pods about 60% busy. It scaled the app from 1 pod to 3 under load, then back to 1.</p>
+  <div class="callout warn"><p><b>This was the earlier setup</b> (a kind cluster on a Mac, 1 to 8 pods, HPA only). The current shared setup is Minikube with 1 to 10 pods. Treat these as background, not as numbers to compare against our new tests.</p></div>
+
+  <div class="grid g4 stagger">
+    <div class="card tile blue"><b>1 → 3 → 1</b><span>replicas: up under load, back down after</span></div>
+    <div class="card tile"><b>11,918</b><span>requests sent by Locust</span></div>
+    <div class="card tile good"><b>0</b><span>failed requests (0.00%)</span></div>
+    <div class="card tile"><b>6 ms</b><span>median response (p95: 22 ms)</span></div>
+  </div>
+
+  <h2>The run, minute by minute</h2>
+  <p class="muted">Hover any chart for exact values. The shaded bands are the load phases.</p>
+  <div class="card" style="margin-bottom:12px"><b>1 · Load: Locust users</b><div class="small muted">What we threw at the app (the planned shape from <code>ramp.py</code>).</div><div class="chartbox" id="c1users"></div></div>
+  <div class="card" style="margin-bottom:12px"><b>2 · Average CPU, as % of each pod's request</b><div class="small muted">HPA's input. The dashed line is the 60% target: above it, HPA adds pods.</div><div class="chartbox" id="c1cpu"></div></div>
+  <div class="card" style="margin-bottom:12px"><b>3 · Replicas</b><div class="small muted">HPA's decision. Note the 5-minute wait after the load drops before pods are removed.</div><div class="chartbox" id="c1rep"></div></div>
+
+  <h2>Reading the charts</h2>
+  <div class="grid g3 stagger">
+    <div class="card"><div class="small muted"><b>0 – 1.5 MIN</b></div><b>Warm-up</b><p class="muted small">CPU climbs from 9% past 60% while one pod handles everything.</p></div>
+    <div class="card"><div class="small muted"><b>1.8 and 3.3 MIN</b></div><b>Scale up</b><p class="muted small">CPU over target, so HPA adds a 2nd, then a 3rd pod. The 132% spike is load arriving faster than new pods could start.</p></div>
+    <div class="card"><div class="small muted"><b>3.5 – 6.5 MIN</b></div><b>Steady</b><p class="muted small">With 3 pods CPU sits at 58–66%, right on target. HPA leaves it alone.</p></div>
+    <div class="card"><div class="small muted"><b>6.5 – 11.8 MIN</b></div><b>Deliberate wait</b><p class="muted small">Load drops to about 6% CPU, but HPA holds 3 pods for its 5-minute stabilization window so it doesn't flap.</p></div>
+    <div class="card"><div class="small muted"><b>11.8 MIN</b></div><b>Scale down</b><p class="muted small">Window over, back to 1 pod. Milestone complete.</p></div>
+  </div>
+
+  <div class="callout new"><p><b>Why this matters for the LLM.</b> HPA is slow to scale down on purpose (5 minutes). Our LLM controller waits 120 s. That choice alone will change cost and flapping in any comparison, so every controller's timers must be written down and compared fairly.</p></div>
+
+  <details><summary>The three setup traps from <code>setup.md</code>, and how they were avoided</summary>
+    <ul class="tight"><li><b>No CPU request, no autoscaling:</b> the Deployment sets <code>requests.cpu: 100m</code> so HPA has a percentage to measure.</li>
+    <li><b>Image only on the laptop:</b> loaded into the cluster with <code>imagePullPolicy: IfNotPresent</code>, so no <code>ErrImagePull</code>.</li>
+    <li><b>port-forward hits one pod:</b> Locust runs against the Service, so new pods actually get traffic. (Our current runner uses <code>minikube service</code> for the same reason.)</li></ul></details>
+  <details><summary>Raw HPA timeline as a table</summary><div class="scroll"><table id="hpaTable"><thead><tr><th>Time</th><th>CPU vs target</th><th>Replicas</th></tr></thead><tbody></tbody></table></div></details>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>This is the reference point: a rule-based controller that works fine on a ramp.</li>
+    <li>Point at chart 3: the long flat stretch after the load drops is HPA's deliberate 5-minute wait.</li>
+    <li>It is history. We do not compare our new numbers directly to these.</li>
+  </ul></div>
+  <p class="small muted">Source: <code>docs/phase1_run.html</code> (team page); data from <code>cloud-env/results/hpa_timeline.txt</code> and <code>locust.log</code>.</p>
+</section>
+
+<!-- =================================================================== 4 · OUR TESTS -->
+<section class="panel" id="p-tests" hidden>
+  <div class="eyebrow">What we ran · 18 Nov 2026</div>
+  <h1>Our tests so far</h1>
+  <p class="lede">Four checks, in order: the code, the model call, the cluster, and a full run.</p>
+
+  <div class="subtabs" id="subtabs" role="tablist">
+    <button class="sub" role="tab" data-sub="unit">1 · Unit tests</button>
+    <button class="sub" role="tab" data-sub="bug">2 · Live check: a bug</button>
+    <button class="sub" role="tab" data-sub="cluster">3 · The cluster</button>
+    <button class="sub" role="tab" data-sub="run">4 · The full run</button>
+  </div>
+
+  <!-- 4.1 -->
+  <div class="subpanel" id="s-unit" hidden>
+    <div class="card"><h3 style="margin-top:0">Unit tests <span class="tag pass">Passed</span></h3>
+      <p class="muted">Fast checks of our own code. No cluster and no API key: the model and Kubernetes are faked.</p>
+      <div class="grid g4" style="margin:12px 0">
+        <div class="tile"><b style="color:var(--green)" data-count="38">0</b><span>passed on the first run</span></div>
+        <div class="tile"><b style="color:var(--green)" data-count="47">0</b><span>passed after the fix (adds the client tests and one new test)</span></div>
+        <div class="tile"><b style="color:var(--green)" data-count="244">0</b><span>whole project today, after the prompt variants, scoring script and prompt lab were added</span></div>
+      </div>
+      <h3>What they check</h3>
+      <ul class="tight">
+        <li><b>Guardrails:</b> the pod count can never leave 1 to 10. Scale-down waits longer than scale-up.</li>
+        <li><b>Prompt:</b> shows the right numbers, writes "n/a" for missing data instead of guessing, never mentions the experiment.</li>
+        <li><b>Decision loop:</b> garbage from the model changes nothing. Unreadable metrics hold. A decision made after shutdown is never applied.</li>
+        <li><b>Model client:</b> key handling, caching, how settings are sent.</li>
+      </ul>
+      <div class="callout warn"><p><b>What they cannot tell us.</b> The model call is faked, so these tests stayed green while the bug on the next tab was waiting. That is why we also run live checks.</p></div>
+    </div>
+  </div>
+
+  <!-- 4.2 -->
+  <div class="subpanel" id="s-bug" hidden>
+    <div class="card"><h3 style="margin-top:0">Live check of the model call <span class="tag found">Bug found, fixed</span></h3>
+      <p class="muted">One cheap real call with a made-up overloaded snapshot (2 pods, CPU 310%, p95 620 ms, 2% errors). A good controller should say <code>SCALE_UP</code>.</p>
+      <div class="ctrls"><button class="btn primary" id="bugRun">▶ Run it</button><button class="btn" id="bugReset">Reset</button></div>
+      <div class="rowlabel">Before the fix</div>
+      <div class="flow" id="bugBefore">
+        <div class="node">Controller sends the question<small>with <code>temperature: 0</code></small></div><div class="go">→</div>
+        <div class="node bad">The API refuses<small>error 400: "Extra inputs are not permitted"</small></div><div class="go">→</div>
+        <div class="node bad">No answer comes back<small>falls back to <code>NO_CHANGE</code></small></div><div class="go">→</div>
+        <div class="node bad">Every tick, forever<small>pods never change</small></div>
+      </div>
+      <div class="rowlabel">After the fix</div>
+      <div class="flow" id="bugAfter">
+        <div class="node">Controller sends the question<small>no temperature setting</small></div><div class="go">→</div>
+        <div class="node good">The API accepts it<small>reply in about 1 second</small></div><div class="go">→</div>
+        <div class="node good"><code>SCALE_UP</code> by 2<small>"P95 latency 620 ms exceeds 300 ms limit and error rate is 2%…"</small></div>
+      </div>
+      <div class="callout bad"><p><b>Why this was dangerous.</b> A failed call is treated as "do nothing", so the bug would not crash anything. The cluster would look calm while the model never made a single decision, which is easy to mistake for a controller that works but rarely needs to act.</p></div>
+      <div class="callout"><p><b>In simple terms:</b> <i>temperature</i> is a dial for how random a model's answers are. We set it to 0 so the same situation gets the same answer. This model now refuses the setting altogether.</p>
+        <p><b>The fix</b> (commit <span class="mono">b42ce90</span>): stop sending it, log the setting in the first line of every run, add a unit test. <b>The cost:</b> answers are a little less repeatable, so repeating each experiment matters more.</p></div>
+    </div>
+  </div>
+
+  <!-- 4.3 -->
+  <div class="subpanel" id="s-cluster" hidden>
+    <div class="card"><h3 style="margin-top:0">Bring up the test cluster <span class="tag pass">Passed</span></h3>
+      <p class="muted">One script, <code>scripts/setup_cluster.sh</code>, builds the whole lab in about 10 minutes. Every health check passed. The settings are the same for every team member on purpose.</p>
+      <div class="ctrls"><button class="btn primary" id="clusterRun">▶ Run the checks</button></div>
+      <ul class="checks" id="checks">
+        <li><b>Kubernetes (Minikube)</b><span><span class="ok">✓ OK</span> 4 CPUs, 6 GB, version 1.35.0</span></li>
+        <li><b>metrics-server</b><span><span class="ok">✓ OK</span> CPU every 15 s (what HPA uses)</span></li>
+        <li><b>Prometheus</b><span><span class="ok">✓ OK</span> scrapes the app every 15 s (what our controller uses)</span></li>
+        <li><b>KEDA</b><span><span class="ok">✓ OK</span> installed for the other baseline</span></li>
+        <li><b>The app</b><span><span class="ok">✓ OK</span> <code>scale-app:v1</code>, 1 pod ready</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 4.4 -->
+  <div class="subpanel" id="s-run" hidden>
+    <div class="card"><h3 style="margin-top:0">The full run: LLM controller on a ramping load <span class="tag pass">Ran cleanly</span></h3>
+      <table class="kv"><tr><td>Scenario</td><td><span class="mono">gradual_ramp</span>: light load, ramp up, hold, drop back</td></tr>
+        <tr><td>Length</td><td>180 s of load after a 60 s idle settle (about 5 minutes in total with setup and export)</td></tr>
+        <tr><td>Controller</td><td><span class="mono">llm</span> · Claude Haiku 4.5 · prompt <span class="mono">cluster-v1</span> · one decision every 15 s · 1 to 10 pods</td></tr>
+        <tr><td>Repeats</td><td><b>1</b>. This is a smoke test, not a result.</td></tr></table>
+    </div>
+
+    <h2>Watch it happen <span class="tag new">Replay</span></h2>
+    <p class="muted">Press Play. The replay pauses at the two moments the model acted, so you can explain each one.</p>
+    <div class="ctrls">
+      <button class="btn primary" id="rPlay">▶ Play</button><button class="btn" id="rRestart">↺ Restart</button>
+      <span class="clock" id="rClock">t = −62 s</span>
+      <input type="range" id="rSlider" min="-62" max="180" step="1" value="-62" aria-label="Time in the run">
+      <label class="small muted">Speed <select id="rSpeed"><option value="4">4×</option><option value="8" selected>8×</option><option value="16">16×</option></select></label>
+      <label class="small muted"><input type="checkbox" id="rPause" checked> pause at key moments</label>
+    </div>
+    <div class="banner" id="rBanner"></div>
+    <div class="replay" style="margin-top:12px">
+      <div class="card">
+        <b>The cluster</b> <span class="small muted" id="rPodTxt"></span>
+        <div class="podsbig" id="rPods"></div>
+        <div class="legend"><span><em style="background:var(--blue-bg);border:2px solid var(--blue)"></em>ready</span><span><em style="background:var(--orange-bg);border:2px dashed var(--orange)"></em>requested, not yet ready</span></div>
+        <div class="meter"><div class="lab"><span>Requests per second (1-min average)</span><b id="mRps">0</b></div><div class="track"><div class="bar" id="bRps" style="background:var(--blue)"></div></div></div>
+        <div class="meter"><div class="lab"><span>CPU (% of what pods asked for; line = 100%)</span><b id="mCpu">0%</b></div><div class="track"><div class="bar" id="bCpu" style="background:var(--purple)"></div><div class="mark" style="left:33.3%;background:var(--muted)"></div></div></div>
+        <div class="meter"><div class="lab"><span>p95 latency (line = 300 ms limit)</span><b id="mP95">n/a</b></div><div class="track"><div class="bar" id="bP95" style="background:var(--orange)"></div><div class="mark" style="left:93.75%"></div></div></div>
+      </div>
+      <div class="card"><b>The model's decisions</b> <span class="small muted">(its reasons are shortened)</span><div class="feed" id="rFeed" style="margin-top:8px"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><div class="scroll"><div style="min-width:640px"><svg id="runChart" class="chart" viewBox="0 0 720 560" role="img" aria-label="Four stacked charts over 180 seconds: requests per second, pods, CPU percent and p95 latency, with a moving cursor."></svg></div></div>
+      <div class="legend"><span>Grey dashed (top) = load being sent, approximate</span><span>Orange dashed = the two moments the controller added pods</span><span>Shaded = peak load</span><span>Black line = replay position</span></div>
+    </div>
+
+    <details><summary>Every decision as a table (17 rows)</summary><div class="scroll"><table id="tickTable"></table></div></details>
+
+    <h2>What the results mean, in plain words</h2>
+    <div class="callout good"><p><b>The pipeline works end to end.</b> Load goes in, numbers come out, the model reads them, the guardrails check its answer, and real pods are added. In 17 decisions: no errors, no unreadable answers, no blocked actions. Out of 5,202 requests, none failed.</p></div>
+    <div class="grid g2">
+      <div class="card"><h3 style="margin-top:0">What went well</h3><ul class="tight">
+        <li><b>Quiet when nothing happens:</b> it held 1 pod through the idle period and said why.</li>
+        <li><b>Reacted when load arrived:</b> one pod hit 257% CPU; within a tick the model added 2 pods and CPU fell to 114%.</li>
+        <li><b>Fast:</b> each model call took about 1 s, so the 15 s tick sets the delay, not the model.</li></ul></div>
+      <div class="card"><h3 style="margin-top:0">What to watch</h3><ul class="tight">
+        <li><b>The second scale-up (3 → 4 at 164 s) looks like a mistake.</b> The load was already back to its quiet level. The model saw 35 req/s after 49, 54 and 51, a falling number, and called it a "spike".</li>
+        <li><b>Latency was never in danger.</b> Worst p95 was 25 ms against 300 ms.</li>
+        <li><b>It never scaled down.</b> The 120 s cooldown outlasted the run.</li>
+        <li><b>One run is an anecdote.</b></li></ul></div>
+    </div>
+    <details><summary>Two smaller things we noticed</summary><ul class="tight">
+      <li><b>"Controller didn't exit in time; sending SIGKILL"</b> appeared at the end, but the controller had logged <code>stopped</code> in the same second as the stop signal. The runner (<code>experiments/run_experiment.py</code>, not ours) probably mistook a finished-but-uncollected process for a live one. Not confirmed. Harmless apart from a 20 s delay and a misleading line. Worth telling Daryan.</li>
+      <li><b>Bytecode in the hash.</b> Unit tests leave <code>__pycache__</code> files in <code>controllers/llm/</code>, and the runner hashes that folder into <code>metadata.json</code>. It only affects the recorded hash, not the results. Delete them before a real experiment.</li></ul></details>
+  </div>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>Run the bug demo: the failure was silent, which is the scary part.</li>
+    <li>In the replay, let it pause at 74 s (good call) and at 164 s (the mistake) and explain each.</li>
+    <li>The model never saw the plan; it saw a one-minute average, and that lag is what fooled it.</li>
+  </ul></div>
+</section>
+
+<!-- =================================================================== 5 · RESEARCH -->
+<section class="panel" id="p-research" hidden>
+  <div class="eyebrow">Literature · Nov 2026</div>
+  <h1>How could an LLM actually run autoscaling?</h1>
+  <p class="lede">A scan of 15 papers (the three most relevant read in full), plus the project's core background reading.</p>
+  <div class="callout warn"><p><b>How much to trust this tab.</b> The paper summaries come from the team page <code>docs/phase1_run.html</code>. The detailed notes it cites (<code>docs/research/llm_controller_architectures.md</code>) are not in the repo, and we have not re-checked the papers. Numbers below are the authors' own claims.</p></div>
+
+  <h2>First finding: almost nobody has done this</h2>
+  <div class="grid g3 stagger">
+    <div class="card tile"><b>Most</b><span>"LLM + autoscaling" papers are about scaling LLMs (GPU model serving), not using an LLM as the scaler.</span></div>
+    <div class="card tile blue"><b>1</b><span>paper found that runs an LLM controller head-to-head against Kubernetes HPA (SAIR).</span></div>
+    <div class="card tile good"><b>0</b><span>papers that test an LLM using human operator context against HPA. That is our gap.</span></div>
+  </div>
+
+  <h2>Five ways to put an LLM in the loop</h2>
+  <p class="muted">Autoscaling is like driving a car. Click a card for more.</p>
+  <div class="grid g3 stagger" id="fams">
+    <div class="card fam ours"><span class="tg">A · where we are</span><span class="emoji">🚗</span><b>The Driver</b><p class="muted small">Every 15 s the LLM reads the dashboard and says "add 2 pods" or "hold".</p>
+      <div class="more">Simple and explainable, but one LLM call per decision. <b>Note:</b> our cluster controller also shows the model its last 5 decisions, so it is already part of the way to design B.</div><div class="hint">click for more</div></div>
+    <div class="card fam"><span class="tg">B</span><span class="emoji">📓</span><b>Driver with a diary</b><p class="muted small">Same, but the prompt includes past decisions and how they turned out, so it "learns" without retraining.</p>
+      <div class="more">Example: SAIR. Its authors report that removing the diary made results about 17% worse.</div><div class="hint">click for more</div></div>
+    <div class="card fam"><span class="tg">C</span><span class="emoji">🧑‍✈️</span><b>Manager of the autopilot</b><p class="muted small">HPA keeps driving. Every few minutes the LLM adjusts HPA's settings (target %, min/max).</p>
+      <div class="more">Safe by design, cheap (few calls), and untested for autoscaling in the papers we found. This is the project's stated fallback architecture.</div><div class="hint">click for more</div></div>
+    <div class="card fam"><span class="tg">D</span><span class="emoji">🌦️</span><b>Weather forecaster</b><p class="muted small">The LLM only predicts upcoming traffic; a normal controller scales ahead of it.</p>
+      <div class="more">Examples: Time-LLM, Chronos. Uses the model for what it may be good at (forecasting), not for control.</div><div class="hint">click for more</div></div>
+    <div class="card fam"><span class="tg">E</span><span class="emoji">🩺</span><b>Doctor</b><p class="muted small">The LLM first diagnoses <i>why</i> things are slow, then picks a fix.</p>
+      <div class="more">Example: ORACL. Turns metrics into words ("CPU: High"), finds the root cause, then chooses an action.</div><div class="hint">click for more</div></div>
+  </div>
+
+  <h2>The three papers that matter most</h2>
+  <div class="grid g3">
+    <div class="card paper"><h3>SAIR</h3><div class="meta">NeurIPS 2026 · design B</div>
+      <div class="row"><b>What:</b> an off-the-shelf LLM decides scaling every 30 s; the prompt includes about 15 past decisions and their outcomes.</div>
+      <div class="row"><b>Result:</b> beat HPA on tail latency by 6–50% on a real cluster; removing the diary made it about 17% worse.</div>
+      <div class="row"><b>For us:</b> the closest setup to ours; its limits (max ±2 pods, cooldowns) resemble our guardrails.</div>
+      <div class="careful">Doesn't say which LLM it used. The "97% cheaper" headline is against its weakest baseline.</div></div>
+    <div class="card paper"><h3>ORACL</h3><div class="meta">Univ. of Melbourne, 2026 · design E</div>
+      <div class="row"><b>What:</b> metrics become words, the LLM finds the root cause, then picks a fix.</div>
+      <div class="row"><b>Result:</b> lower latency than simple threshold scalers on a microservice shop app.</div>
+      <div class="row"><b>For us:</b> two ideas to borrow: Low/Med/High labels as input, and "diagnose before you act".</div>
+      <div class="careful">Uses a specially trained LLM, never tested against real HPA, and some abstract numbers aren't backed up in the paper.</div></div>
+    <div class="card paper"><h3>Scaling under long startup delays</h3><div class="meta">CloudCom 2026 · no LLM</div>
+      <div class="row"><b>What:</b> new pods take time to start, so a reactive controller is always late. Predict traffic one startup-delay ahead and scale early.</div>
+      <div class="row"><b>Result:</b> that one idea cut slow responses about 14×.</div>
+      <div class="row"><b>For us:</b> our simulator has the same startup delay (2 ticks). It changes how we should test.</div>
+      <div class="careful">Simulation plus a small hardware test; scaling back down is left unsolved.</div></div>
+  </div>
+
+  <h2>Biggest insight: looking ahead beats being clever</h2>
+  <div class="card">
+    <b>% of requests that were too slow</b> <span class="small muted">(startup-delay paper's simulation; lower is better; hover a bar)</span>
+    <div class="legend"><span><em style="background:var(--line)"></em>reacts to current load</span><span><em style="background:var(--blue)"></em>looks ahead by the startup delay</span></div>
+    <div class="bars" id="bars"></div>
+  </div>
+
+  <h2>Why this matters for our experiment</h2>
+  <div class="vs"><div class="card"><b>If the LLM beats HPA on "campaign in 90 s"…</b><p class="muted small">…was it because it <b>understood the message</b>?</p></div><div class="mid">or</div><div class="card"><b>…because it just scaled early?</b><p class="muted small">A 20-line "look ahead" controller might do the same with no LLM at all.</p></div></div>
+  <div class="callout"><p><b>So we need a simple non-LLM look-ahead baseline.</b> If the LLM still wins against that, the language understanding helped, not just the timing.</p></div>
+
+  <h2>Core background reading <span class="tag info">from the onboarding docs</span></h2>
+  <div class="grid g2">
+    <div class="card"><b>DeepRM (Mao et al., 2016)</b><p class="muted small">A reinforcement-learning agent learns a resource policy from experience. Our framing borrows its structure: <i>system state → policy → decision</i>. Honest answer to "why not RL?": RL can learn strong policies but needs environment interaction and reward engineering, and doesn't take qualitative context naturally.</p></div>
+    <div class="card"><b>Kubernetes HPA (docs)</b><p class="muted small">Our primary baseline. We need to know its formula, tolerances, stabilization windows and scale-up/down policies well enough to explain <i>why</i> it does or doesn't handle a workload.</p></div>
+    <div class="card"><b>ReAct (Yao et al., 2022)</b><p class="muted small">How to interleave reasoning with discrete actions. Useful for the controller's prompt and action loop.</p></div>
+    <div class="card"><b>LLM + RL for cyber operations (El Mezouar et al.)</b><p class="muted small">One of few examples of LLM-augmented decisions in a changing, adversarial environment. Structurally similar to ours. DeathStarBench (a realistic microservice suite) is noted for later, not needed yet.</p></div>
+  </div>
+
+  <h2>What format do we give the LLM?</h2>
+  <div class="grid g3">
+    <div class="card"><b>No one agrees</b><p class="muted small">JSON, table or plain sentences: the best choice depends on the model, and no study tested it for control.</p></div>
+    <div class="card"><b>Numbers in sentences hurt</b><p class="muted small">Tables or JSON tend to beat numbers buried in prose, and format changes token count, so speed and cost too.</p></div>
+    <div class="card"><b>So we test it ourselves</b><p class="muted small">Same controller, three formats (JSON / table / Low-Med-High words). A cheap experiment with a real answer.</p></div>
+  </div>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>The gap: nobody has tested an LLM <i>with human context</i> against HPA. That is our contribution.</li>
+    <li>SAIR is the closest work. Its diary result is why history in the prompt matters.</li>
+    <li>The look-ahead result is a warning: we must rule out "it just scaled early".</li>
+  </ul></div>
+</section>
+
+<!-- =================================================================== 6 · INSIGHTS -->
+<section class="panel" id="p-insights" hidden>
+  <div class="eyebrow">Our take</div>
+  <h1>Insights and what to do next</h1>
+  <p class="lede">What our first results and the research suggest, what to investigate next, and how to handle the LLM controller from here.</p>
+  <div class="callout warn"><p>These are recommendations from reading the code, our one test run, and the team's research summary. They are not findings. Agree them with the team (especially Daryan and Max) before acting.</p></div>
+
+  <h2>A · What our first results suggest</h2>
+  <div class="grid g2 stagger">
+    <div class="card"><span class="tag bad">Risk</span> <b>Failure looks like calm</b><p class="muted small">A failed model call becomes "do nothing". The temperature bug would have hidden behind that. <b>Do:</b> have every run count failed calls and print a loud summary; treat a run with failed calls as invalid, not as "the LLM rarely acts".</p></div>
+    <div class="card"><span class="tag found">Evidence</span> <b>Lagging averages fool the model</b><p class="muted small">It saw a falling request rate and called it a spike, despite a warning in its prompt and 3 ticks of history. <b>Now built:</b> <span class="mono">cluster-v2-trend</span> computes an explicit trend from the controller's own history, so it stays fair. In the prompt lab it fixed this exact misread (tab 7), but it was designed on that one example, so it still needs held-out situations and cluster repeats.</p></div>
+    <div class="card"><span class="tag found">Evidence</span> <b>The ramp was too gentle</b><p class="muted small">Worst p95 was 25 ms against 300 ms, even at one pod and 257% CPU. A test that can't hurt can't show a benefit. <b>Do:</b> use the harsher shapes already on <span class="mono">main</span>: <span class="mono">step_up</span>, <span class="mono">sudden_spike</span>, <span class="mono">daily_wave</span>, <span class="mono">random_bursts</span>.</p></div>
+    <div class="card"><span class="tag info">Question</span> <b>Is the startup delay really long here?</b><p class="muted small">New pods were ready by the next 15 s reading after the first scale-up. The simulator assumes 30 s and the startup-delay paper assumes long delays. If real startup is short, look-ahead matters less on this cluster. <b>Do:</b> measure it properly (time from scale command to ready, several times). This is one observation, so treat it as a lead.</p></div>
+    <div class="card"><span class="tag info">Evidence</span> <b>Cost is not the blocker</b><p class="muted small">Each call took about 1 s and 17 calls cost very little. <b>Do:</b> log tokens and cost per run anyway, since the team asked whether to score API calls.</p></div>
+    <div class="card"><span class="tag found">Evidence</span> <b>Output is no longer fully repeatable</b><p class="muted small">Without temperature 0, the same situation can get different answers. <b>Do:</b> at least 3 repeats per condition, and report the spread, not just one run.</p></div>
+  </div>
+
+  <h2>B · What to research next, in order</h2>
+  <div class="grid" style="gap:12px">
+    <div class="card prio"><div class="p">1</div><div><h3>Test the core hypothesis: does context help?</h3>
+      <p class="muted small">The project's strongest claim is that an LLM can use qualitative context (a campaign is coming) that HPA can't. <b>Our cluster controller cannot read any context yet</b>; it is metrics plus a 5-decision history. Max's separate script has a context variant (<span class="mono">llm_context</span>). Run <span class="mono">spike_with_warning</span> on the real cluster, with a matching run that has <i>no</i> note and one with a <i>misleading</i> note (a campaign that never comes).</p>
+      <div class="meta2"><span class="tag info">Why first</span><span class="tag new">Needs a design decision</span></div>
+      <p class="small muted" style="margin-top:6px"><b>Care needed:</b> notes must reach the controller through a neutral channel (for example a notes file it polls), never through scenario names or configs, or the fairness rule breaks. Propose the design to Daryan before building.</p></div></div>
+    <div class="card prio"><div class="p">2</div><div><h3>Add the controls that separate "LLM" from "information"</h3>
+      <p class="muted small">(a) A non-LLM look-ahead baseline (from the startup-delay paper). (b) A scheduled baseline that pre-scales at a time the operator gives it; a version already exists in the simulator (<span class="mono">controller/scheduled_baseline.py</span>). If a 20-line controller matches the LLM, the model isn't what helped; the information is.</p>
+      <div class="meta2"><span class="tag info">Why</span> fairness of the final claim</div></div></div>
+    <div class="card prio"><div class="p">3</div><div><h3>Harsher scenarios, with repeats, on one machine</h3>
+      <p class="muted small">All five scenarios, at least 3 repeats each, run on the machine Daryan uses for final numbers so results are comparable. Compare HPA, KEDA and the LLM on the same shapes. Report cost (pod-minutes) as well as latency.</p></div></div>
+    <div class="card prio"><div class="p">4</div><div><h3>Prompt experiments, one change at a time</h3>
+      <p class="muted small">Candidates: explicit trend line (see A), history length (SAIR's diary result suggests it matters), input format (JSON / table / Low-Med-High words), "diagnose then act" wording (ORACL). Each change gets a new <span class="mono">PROMPT_VERSION</span> and its own repeats.</p></div></div>
+    <div class="card prio"><div class="p">5</div><div><h3>The fallback architecture: LLM as manager of HPA</h3>
+      <p class="muted small">If direct control proves too slow, jumpy or unreliable, let HPA do the second-to-second work while the LLM adjusts its settings every few minutes. Cheap, safe, and not published for autoscaling as far as our scan found.</p></div></div>
+    <div class="card prio"><div class="p">6</div><div><h3>Other models and settings</h3>
+      <p class="muted small">Haiku 4.5 is the default. Compare one or two other models (OpenRouter is wired in; pin the upstream provider so runs are reproducible). Note that this model no longer accepts a temperature setting, so decide the policy for all models and write it down.</p></div></div>
+  </div>
+
+  <h2>C · How to handle the LLM controller</h2>
+  <div class="dd">
+    <div class="card do"><h3>Do</h3><ul class="tight do">
+      <li><b>Treat <span class="mono">controllers/llm</span> as the one cluster controller.</b> It follows the shared plugin contract (runner, telemetry, bounds).</li>
+      <li><b>Freeze before collecting data:</b> model, prompt version, cooldowns. They are logged in the first line of <span class="mono">controller.log</span>.</li>
+      <li><b>Change one thing at a time</b> and bump <span class="mono">PROMPT_VERSION</span> each time.</li>
+      <li><b>Keep guardrails strict.</b> Raw model output never reaches the Kubernetes API.</li>
+      <li><b>Report negative results.</b> "HPA wins, except when X" is a valid, publishable outcome.</li>
+      <li><b>Flag fairness-affecting changes in the PR,</b> as AGENTS.md asks.</li>
+      <li><b>Clean up before real runs:</b> delete <span class="mono">__pycache__</span> in <span class="mono">controllers/llm/</span>.</li></ul></div>
+    <div class="card dont"><h3>Don't</h3><ul class="tight dont">
+      <li><b>Don't let the controller learn the scenario:</b> no reading of configs, results or run names.</li>
+      <li><b>Don't compare against HPA numbers from a different setup</b> (the Phase 1 numbers are history).</li>
+      <li><b>Don't draw conclusions from one run</b> or from a scenario that never stresses latency.</li>
+      <li><b>Don't change shared settings</b> (cluster, app, scenarios, telemetry) to make the LLM look better.</li>
+      <li><b>Don't commit</b> <span class="mono">.env</span>, <span class="mono">experiments/results/</span> or <span class="mono">setup.log</span>.</li>
+      <li><b>Don't average away the failures:</b> count and report failed or invalid calls.</li></ul></div>
+  </div>
+
+  <div class="callout new"><p><b>Coordinate with Max.</b> The branch <span class="mono">feature_Max_llm_controller</span> adds <span class="mono">experiments/k8s_run.py</span>, a separate way to run the simulator's LLM controller on the live cluster. Per its setup notes it scrapes CPU directly instead of using the shared runner and telemetry, and it uses a scale-down cooldown of 4 ticks (60 s) while ours is 120 s. Two LLM controllers with different timers and inputs will not give comparable results. Agree one set of settings, and decide whether <span class="mono">k8s_run.py</span> stays as a development tool or is retired once our plugin has the context feature.</p></div>
+
+  <h2>D · Where the experiment grid stands</h2>
+  <p class="muted">Rows are controllers, columns are the scenarios on <span class="mono">main</span>. Almost everything is still ahead of us.</p>
+  <div class="card scroll"><table class="matrix" id="matrix"></table></div>
+
+  <h2>E · Open questions for the team</h2>
+  <div class="card"><ul class="tight">
+    <li>How slow can one LLM decision be? (SAIR reports 1–2 s; ours is about 1 s against a 15 s tick.)</li>
+    <li>Should we score cost (API calls, tokens) as well as performance?</li>
+    <li>Who builds the look-ahead baseline: the LLM track or the HPA track?</li>
+    <li>How do operator notes reach a cluster controller without breaking the fairness rule?</li>
+    <li>One scale-down cooldown for all LLM variants? (Ours is 120 s; the camp variant uses 60 s; HPA uses 300 s.)</li>
+    <li>Policy for models that reject <span class="mono">temperature</span>: leave it off for all, or pick a model that accepts it?</li>
+    <li>Should the runner's misleading SIGKILL message be fixed? (Daryan's file.)</li></ul></div>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>Biggest gap: our cluster controller can't read context yet, and context is the whole hypothesis.</li>
+    <li>Second: without a look-ahead baseline and a scheduled baseline, a win could be misread.</li>
+    <li>Third: align with Max so there is one LLM controller and one set of timers.</li>
+  </ul></div>
+</section>
+
+<!-- =================================================================== 7 · PROMPTING / MEETING -->
+<section class="panel" id="p-meeting" hidden>
+  <div class="eyebrow">For today's meeting</div>
+  <h1>Prompting the LLM controller: what we built and what it showed</h1>
+  <p class="lede">Prompt work needs a loop: change the prompt, score it, repeat. We now have that loop, and we have used it on seven prompts. The most useful result is a warning: what looked best on the situations we designed on did not hold up on new ones.</p>
+  <div class="grid g4 stagger" id="mTiles"></div>
+  <div class="callout warn"><p><b>Read every number here as a lead, not a result.</b> The lab uses 5 answers per cell on the situations we designed on and 3 on the held-out ones. The cluster comparisons are single runs. The "sensible" answers are our own judgement.</p></div>
+  <!--MEETING_DATA_START--><script id="meetingData" type="application/json">{"lab": {"model": "claude-haiku-4-5-20251001", "repeats": 5, "calls": 105, "failed": 0, "cases": [{"id": "gradual_ramp_run1:t4", "tick": 4, "title": "Idle: one pod, no traffic", "expect": ["NO_CHANGE", "SCALE_DOWN"], "note": "Idle at the 1-pod minimum: nothing to do.", "live_answer": {"action": "NO_CHANGE", "amount": 0, "reason": "No traffic arriving; single replica is sufficient for idle service.", "applied": false}, "variants": {"cluster-v1": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica sufficient at minimum capacity."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single pod is sufficient and within bounds."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single pod is sufficient for minimum capacity."}, {"answer": "NO_CHANGE", "reason": "No requests arriving; single replica is sufficient for idle state."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient for idle state."}]}, "cluster-v1-nohist": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Service is idle with no requests and low CPU usage; maintain minimum replica count."}, {"answer": "NO_CHANGE", "reason": "Service has minimal traffic and latency is not measured, so current single replica is adequate."}, {"answer": "NO_CHANGE", "reason": "Service is idle with no requests and minimal CPU usage; maintain single replica at minimum."}, {"answer": "NO_CHANGE", "reason": "Service is idle with no requests and 1 pod is sufficient for minimum capacity."}, {"answer": "NO_CHANGE", "reason": "No requests arriving, single replica is sufficient at minimum capacity."}]}, "cluster-v1-hist10": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica sufficient and within bounds."}, {"answer": "NO_CHANGE", "reason": "Service has no traffic and minimal CPU usage; one replica is sufficient for idle state."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single pod is sufficient for zero load."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient for idle state."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient for current load."}]}, "cluster-v1-hist15": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "No traffic, minimal CPU usage, service is stable at minimum replica count."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient for idle state."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient and meets minimum requirements."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient and meets minimum requirement."}, {"answer": "NO_CHANGE", "reason": "No traffic, minimal CPU usage, service is healthy at minimum replica count."}]}, "cluster-v2-outcomes": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "No traffic arriving; single pod is sufficient and within normal idle CPU variation."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving, single pod is sufficient and within acceptable idle CPU usage."}, {"answer": "NO_CHANGE", "reason": "No requests arriving; single pod is sufficient and within bounds."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single pod is sufficient and within bounds."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving, single pod is sufficient and within acceptable idle state."}]}, "cluster-v2-trend": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient for idle state."}, {"answer": "NO_CHANGE", "reason": "No traffic, minimal CPU usage, service is idle at minimum replicas."}, {"answer": "NO_CHANGE", "reason": "No traffic, minimal CPU usage, service stable at minimum replica count."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient and meets minimum requirement."}, {"answer": "NO_CHANGE", "reason": "No traffic detected; single replica is sufficient and within minimum bounds."}]}, "cluster-v2-words": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "No traffic arriving; single pod is sufficient at minimum replica count with healthy resource usage."}, {"answer": "NO_CHANGE", "reason": "Service is idle with no requests and minimal CPU usage; maintain single replica at minimum."}, {"answer": "NO_CHANGE", "reason": "No traffic arriving; single replica is sufficient for minimum capacity."}, {"answer": "NO_CHANGE", "reason": "No traffic, minimal CPU usage, service is healthy at minimum replica count."}, {"answer": "NO_CHANGE", "reason": "No requests arriving; single replica is sufficient for idle state."}]}}}, {"id": "gradual_ramp_run1:t9", "tick": 9, "title": "The rise: one pod at 215% CPU, load climbing fast", "expect": null, "note": "No expectation: scaling up is the proactive choice, but holding is defensible too (p95 stayed under 25 ms even at 257% CPU on one pod). Read this case as a style difference, not right or wrong.", "live_answer": {"action": "SCALE_UP", "amount": 2, "reason": "CPU at 215% indicates pod is heavily overloaded; request rate doubled in one tick to 24.8 req/s and will cause latency to spike without additional capacity.", "applied": true}, "variants": {"cluster-v1": {"counts": {"SCALE_UP+2": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is heavily overloaded; request rate doubled in one cycle; preemptive scaling needed to prevent latency spike."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is heavily overloaded; request rate is rising rapidly and will soon exceed single pod capacity."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is severely overloaded; latency still acceptable but will degrade rapidly as CPU approaches saturation limit."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is heavily overloaded; request rate of 24.8 req/s requires more capacity to prevent latency spike."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is severely overloaded; request rate doubled in one tick; preemptively scale to prevent latency spike."}]}, "cluster-v1-nohist": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Single pod is handling 24.8 req/s with 215% CPU burst and latency well below 300ms limit; no scaling needed yet."}, {"answer": "NO_CHANGE", "reason": "Single pod is handling 24.8 req/s with 215% CPU burst and low latency (p95 20ms well under 300ms limit), indicating healthy performance with adequate headroom."}, {"answer": "NO_CHANGE", "reason": "Single pod is handling 24.8 req/s with low latency (p95 20ms) and zero errors despite 215% CPU burst usage, indicating good headroom before hitting the 300ms limit."}, {"answer": "NO_CHANGE", "reason": "Single pod is handling 24.8 req/s with 215% CPU burst and excellent latency (p95 20ms), well below the 300ms limit with zero errors."}, {"answer": "NO_CHANGE", "reason": "Single pod is handling 24.8 req/s with 215% CPU and latency well below 300ms limit; no scaling needed yet."}]}, "cluster-v1-hist10": {"counts": {"SCALE_UP+2": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is heavily overloaded; latency still acceptable but approaching saturation risk with 24.8 req/s on single pod."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod saturation; latency still acceptable but trending upward with high request rate; scaling up preemptively to maintain performance."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is heavily overloaded; latency still acceptable but approaching saturation risk with 24.8 req/s."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates saturation; request rate doubled to 24.8 req/s and latency trending upward; need more capacity before hitting the 300ms limit."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod is heavily overloaded; request rate doubled in last 15s and will continue rising, so preemptively add capacity now."}]}, "cluster-v1-hist15": {"counts": {"SCALE_UP+2": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates saturation; latency still acceptable but trending upward with high load"}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod saturation; latency still acceptable but trending upward with request rate doubling; preemptively add capacity before latency approaches limit."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates saturation; latency still acceptable but trending toward the limit as request rate climbs to 24.8 req/s."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod saturation; latency still acceptable but trending upward with high load; need capacity before hitting the 300ms limit."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates pod saturation; request rate doubled in last minute; scaling up proactively before latency spikes."}]}, "cluster-v2-outcomes": {"counts": {"SCALE_UP+2": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+2", "reason": "CPU jumped to 215% with request rate at 24.8 req/s; latency still acceptable but trending up rapidly; need capacity now to prevent saturation."}, {"answer": "SCALE_UP+2", "reason": "CPU jumped to 215% and request rate is rising rapidly; need capacity before latency hits the limit."}, {"answer": "SCALE_UP+2", "reason": "CPU jumped to 215% and latency is rising; need capacity immediately to prevent saturation"}, {"answer": "SCALE_UP+2", "reason": "CPU jumped to 215% indicating pod is severely overloaded; latency still acceptable but approaching saturation risk."}, {"answer": "SCALE_UP+2", "reason": "CPU jumped to 215% and request rate is rising rapidly; need capacity before latency degrades further."}]}, "cluster-v2-trend": {"counts": {"SCALE_UP+2": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+2", "reason": "CPU at 215% with request rate rising steeply; latency still acceptable but approaching saturation risk."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates severe saturation; request rate rising steeply to 24.8 req/s; latency still acceptable but will degrade rapidly without more capacity."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% (bursting hard) with request rate rising steeply; proactively add capacity before latency spikes near the 300ms limit."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates severe saturation; request rate rising steeply to 24.8 req/s; need capacity before latency spikes."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% indicates severe saturation; request rate rising steeply to 24.8 req/s; latency still acceptable but will spike soon without capacity increase."}]}, "cluster-v2-words": {"counts": {"SCALE_UP+2": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+2", "reason": "CPU at 215% (very high) with single pod near saturation; latency still low but will rise steeply soon if load continues; add capacity preemptively."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% (very high) with request rate at 24.8 req/s; need more capacity before latency degrades."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% (very high) with single pod; latency still acceptable but approaching saturation risk; add replicas to reduce load and prevent degradation."}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% (very high) with single pod handling 24.8 req/s; latency still low but approaching saturation risk"}, {"answer": "SCALE_UP+2", "reason": "CPU at 215% (very high) with single pod; latency still low but CPU saturation imminent; add capacity proactively to prevent degradation."}]}}}, {"id": "gradual_ramp_run1:t15", "tick": 15, "title": "The mistake: load already falling, three pods at 88% CPU", "expect": ["NO_CHANGE", "SCALE_DOWN"], "note": "Load had already dropped (request rate and CPU falling for 3 readings, p95 14 ms). The live model scaled UP here, which looks like a mistake (human judgement).", "live_answer": {"action": "SCALE_UP", "amount": 1, "reason": "CPU usage spiked to 88% with high volatility (119-137% in recent ticks), indicating we're approaching saturation; p95 latency is still low but growing trend suggests proactive scaling is needed.", "applied": true}, "variants": {"cluster-v1": {"counts": {"SCALE_UP+1": 5}, "n": 5, "reasons": [{"answer": "SCALE_UP+1", "reason": "CPU usage spiked to 88% with request rate at 34.6 req/s; latency still low but trending upward, so add capacity preemptively before hitting the limit."}, {"answer": "SCALE_UP+1", "reason": "CPU usage spiked to 137% recently and latency is trending upward; adding capacity will prevent saturation and keep latency well below limit."}, {"answer": "SCALE_UP+1", "reason": "CPU usage at 88% with recent spikes to 137%, approaching saturation; latency still low but trending upward and room to add capacity safely."}, {"answer": "SCALE_UP+1", "reason": "CPU usage spiked to 137% recently and latency is rising; adding capacity now will prevent further degradation."}, {"answer": "SCALE_UP+1", "reason": "CPU usage spiked to 88% with volatile trend; latency still low but preemptive scaling prevents saturation."}]}, "cluster-v1-nohist": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms well below 300ms limit), zero errors, and CPU at 88% with room to handle traffic spikes before adding replicas."}, {"answer": "NO_CHANGE", "reason": "Latency is well below 300ms limit, error rate is zero, and CPU utilization at 88% leaves adequate headroom for traffic spikes."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms well below 300ms limit), zero errors, and CPU at 88% with room to handle traffic spikes before scaling is needed."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms well below 300ms limit), zero errors, and CPU at 88% with room to handle traffic spikes before scaling."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms well below 300ms limit), zero errors, and CPU at 88% with room to handle load spikes."}]}, "cluster-v1-hist10": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms) and zero errors; CPU at 88% is acceptable and request rate is stable."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with 88% CPU, low latency (p95 14ms), and zero errors; no scaling needed."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms) and zero errors; CPU at 88% is acceptable and request rate is stable."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms well below 300ms limit), zero errors, and CPU at 88% is acceptable headroom before saturation."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms) and zero errors; CPU at 88% is acceptable and trending stable; request rate is steady around 34-36 req/s with 3 pods handling load well."}]}, "cluster-v1-hist15": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Service is stable with 3 replicas handling 34.6 req/s at 88% CPU, p95 latency 14ms well below 300ms limit, and zero errors."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms), zero errors, and CPU at 88% with 3 ready pods handling 34.6 req/s well within limits."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms), zero errors, and CPU at 88% with good headroom before saturation."}, {"answer": "NO_CHANGE", "reason": "Service is healthy with low latency (p95 14ms) and zero errors; CPU at 88% is acceptable and request rate is stable at 34.6 req/s across 3 ready pods."}, {"answer": "NO_CHANGE", "reason": "Latency p95 is 14ms (well below 300ms limit), error rate is 0%, and CPU is at 88% with good headroom; 3 replicas are handling 34.6 req/s efficiently."}]}, "cluster-v2-outcomes": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Service is stable with low latency (p95 14ms well below 300ms limit), zero errors, and CPU has normalized to 88% after recent spike."}, {"answer": "NO_CHANGE", "reason": "Service is stable with p95 latency at 14ms (well below 300ms limit), 0% errors, and CPU trending downward to 88%; no scaling needed."}, {"answer": "NO_CHANGE", "reason": "CPU normalized to 88%, p95 latency stable at 14ms well below 300ms limit, error rate zero, no scaling needed."}, {"answer": "NO_CHANGE", "reason": "Latency is well below 300ms limit, error rate is zero, and CPU has stabilized at 88% with good headroom."}, {"answer": "NO_CHANGE", "reason": "Latency is well below 300ms limit, error rate is zero, and CPU has stabilized around 88% with good headroom."}]}, "cluster-v2-trend": {"counts": {"NO_CHANGE": 5}, "n": 5, "reasons": [{"answer": "NO_CHANGE", "reason": "Load is falling, latency and errors are well within limits, and CPU is normalizing to healthy levels."}, {"answer": "NO_CHANGE", "reason": "Load is falling, latency well below limit at 14ms, and CPU trending down to 88% with no errors."}, {"answer": "NO_CHANGE", "reason": "Load is falling, latency and errors are excellent, and CPU is now at a healthy 88% with no stress signals."}, {"answer": "NO_CHANGE", "reason": "Load is falling, latency well below limit at 14ms, CPU at 88% with no errors; system is stabilizing."}, {"answer": "NO_CHANGE", "reason": "Load is falling, latency and errors are excellent, CPU is normalizing down from spike; wait for trend to stabilize before scaling."}]}, "cluster-v2-words": {"counts": {"SCALE_UP+1": 4, "NO_CHANGE": 1}, "n": 5, "reasons": [{"answer": "SCALE_UP+1", "reason": "CPU reached 137% (burst capacity) recently; adding one pod provides headroom before latency degrades."}, {"answer": "SCALE_UP+1", "reason": "CPU usage spiked to 137% recently and latency is rising; add capacity before hitting the 300ms limit."}, {"answer": "SCALE_UP+1", "reason": "CPU usage spiked to 137% recently and latency is trending upward; adding capacity will prevent saturation and keep latency well under the 300ms limit."}, {"answer": "SCALE_UP+1", "reason": "CPU has spiked to 88-137% over last minute with high variance; latency still low but pod saturation risk is growing."}, {"answer": "NO_CHANGE", "reason": "Latency and error rate are excellent; CPU is moderate and stable; request rate is manageable with current capacity."}]}}}]}, "held_out": {"calls": 441, "cases": 21, "repeats": 3, "mix": {"cluster-v1": {"n": 63, "hold": 57, "up": 3, "down": 3, "invalid": 0, "pods_asked": 4, "down_at_min": 3}, "cluster-v1-nohist": {"n": 63, "hold": 60, "up": 0, "down": 3, "invalid": 0, "pods_asked": 0, "down_at_min": 3}, "cluster-v1-hist10": {"n": 63, "hold": 56, "up": 1, "down": 6, "invalid": 0, "pods_asked": 1, "down_at_min": 3}, "cluster-v1-hist15": {"n": 63, "hold": 44, "up": 13, "down": 6, "invalid": 0, "pods_asked": 16, "down_at_min": 3}, "cluster-v2-outcomes": {"n": 63, "hold": 51, "up": 9, "down": 3, "invalid": 0, "pods_asked": 11, "down_at_min": 3}, "cluster-v2-trend": {"n": 63, "hold": 46, "up": 6, "down": 11, "invalid": 0, "pods_asked": 7, "down_at_min": 3}, "cluster-v2-words": {"n": 63, "hold": 51, "up": 9, "down": 0, "invalid": 3, "pods_asked": 11, "down_at_min": 0}}, "first_up": {"cluster-v1": 7, "cluster-v1-nohist": null, "cluster-v1-hist10": null, "cluster-v1-hist15": 11, "cluster-v2-outcomes": 7, "cluster-v2-trend": 7, "cluster-v2-words": 11}, "diffs": [{"tick": 0, "pods": 1, "cpu": 4, "rps": 1, "p95": 9, "baseline": "SCALE_DOWN+3", "others": {"cluster-v2-words": "INVALID"}}, {"tick": 7, "pods": 1, "cpu": 95, "rps": 16, "p95": 15, "baseline": "SCALE_UP+1", "others": {"cluster-v1-nohist": "NO_CHANGE", "cluster-v1-hist10": "NO_CHANGE", "cluster-v1-hist15": "NO_CHANGE", "cluster-v2-words": "NO_CHANGE"}}, {"tick": 10, "pods": 2, "cpu": 96, "rps": 24, "p95": 16, "baseline": "NO_CHANGE", "others": {"cluster-v2-outcomes": "SCALE_UP+1"}}, {"tick": 11, "pods": 2, "cpu": 151, "rps": 44, "p95": 25, "baseline": "NO_CHANGE", "others": {"cluster-v1-hist15": "SCALE_UP+1", "cluster-v2-outcomes": "SCALE_UP+2", "cluster-v2-trend": "SCALE_UP+1", "cluster-v2-words": "SCALE_UP+1"}}, {"tick": 13, "pods": 3, "cpu": 184, "rps": 69, "p95": 23, "baseline": "NO_CHANGE", "others": {"cluster-v1-hist15": "SCALE_UP+1"}}, {"tick": 14, "pods": 3, "cpu": 189, "rps": 69, "p95": 18, "baseline": "NO_CHANGE", "others": {"cluster-v1-hist15": "SCALE_UP+1", "cluster-v2-words": "SCALE_UP+2"}}, {"tick": 15, "pods": 3, "cpu": 135, "rps": 48, "p95": 15, "baseline": "NO_CHANGE", "others": {"cluster-v1-hist15": "SCALE_UP+2", "cluster-v2-words": "SCALE_UP+1"}}, {"tick": 17, "pods": 3, "cpu": 50, "rps": 19, "p95": 12, "baseline": "NO_CHANGE", "others": {"cluster-v2-trend": "SCALE_DOWN+1"}}, {"tick": 18, "pods": 3, "cpu": 39, "rps": 18, "p95": 12, "baseline": "NO_CHANGE", "others": {"cluster-v2-trend": "SCALE_DOWN+1"}}, {"tick": 19, "pods": 3, "cpu": 51, "rps": 18, "p95": 13, "baseline": "NO_CHANGE", "others": {"cluster-v2-trend": "SCALE_DOWN+1"}}, {"tick": 20, "pods": 3, "cpu": 49, "rps": 19, "p95": 13, "baseline": "NO_CHANGE", "others": {"cluster-v1-hist10": "SCALE_DOWN+1", "cluster-v1-hist15": "SCALE_DOWN+1"}}], "live_up_ticks": [7, 11], "invalid": [{"variant": "cluster-v2-words", "tick": 0, "reason": "fallback: amount out of range: 9"}, {"variant": "cluster-v2-words", "tick": 0, "reason": "fallback: amount out of range: 9"}, {"variant": "cluster-v2-words", "tick": 0, "reason": "fallback: amount is not an integer: None"}]}, "variants": [{"name": "cluster-v1", "description": "The baseline prompt."}, {"name": "cluster-v1-nohist", "description": "Baseline, but the model sees no past decisions."}, {"name": "cluster-v1-hist10", "description": "Baseline, but the model sees the last 10 decisions."}, {"name": "cluster-v1-hist15", "description": "Baseline, but the model sees the last 15 decisions (SAIR-length diary)."}, {"name": "cluster-v2-outcomes", "description": "Baseline plus what each past decision led to by the next reading."}, {"name": "cluster-v2-trend", "description": "Baseline plus a computed trend line."}, {"name": "cluster-v2-words", "description": "Baseline plus a word next to CPU, latency and errors."}], "prompts_t15": {"cluster-v1": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88%   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (limit 300 ms)   Errors: 0.0%\n\nYour recent decisions (oldest first, 15 s apart):\nticks ago | requested | ready | starting | cpu% | req/s | p95 ms | errors | you did\n5 | 3 | 3 | 0 | 100 | 35.5 | 23 | 0.0% | NO_CHANGE\n4 | 3 | 3 | 0 | 137 | 34.3 | 25 | 0.0% | NO_CHANGE\n3 | 3 | 3 | 0 | 134 | 48.8 | 18 | 0.0% | NO_CHANGE\n2 | 3 | 3 | 0 | 133 | 53.6 | 15 | 0.0% | NO_CHANGE\n1 | 3 | 3 | 0 | 119 | 51.4 | 14 | 0.0% | NO_CHANGE\n\nDecide this tick's action. Reply with only the JSON object.", "cluster-v1-nohist": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88%   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (limit 300 ms)   Errors: 0.0%\n\nDecide this tick's action. Reply with only the JSON object.", "cluster-v1-hist10": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88%   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (limit 300 ms)   Errors: 0.0%\n\nYour recent decisions (oldest first, 15 s apart):\nticks ago | requested | ready | starting | cpu% | req/s | p95 ms | errors | you did\n10 | 1 | 1 | 0 | 3 | 0.0 | n/a | n/a | NO_CHANGE\n9 | 1 | 1 | 0 | 10 | 1.7 | 15 | 0.0% | NO_CHANGE\n8 | 1 | 1 | 0 | 53 | 5.5 | 15 | 0.0% | NO_CHANGE\n7 | 1 | 1 | 0 | 51 | 13.1 | 17 | 0.0% | NO_CHANGE\n6 | 3 | 1 | 0 | 215 | 24.8 | 20 | 0.0% | SCALE_UP 2\n5 | 3 | 3 | 0 | 100 | 35.5 | 23 | 0.0% | NO_CHANGE\n4 | 3 | 3 | 0 | 137 | 34.3 | 25 | 0.0% | NO_CHANGE\n3 | 3 | 3 | 0 | 134 | 48.8 | 18 | 0.0% | NO_CHANGE\n2 | 3 | 3 | 0 | 133 | 53.6 | 15 | 0.0% | NO_CHANGE\n1 | 3 | 3 | 0 | 119 | 51.4 | 14 | 0.0% | NO_CHANGE\n\nDecide this tick's action. Reply with only the JSON object.", "cluster-v1-hist15": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88%   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (limit 300 ms)   Errors: 0.0%\n\nYour recent decisions (oldest first, 15 s apart):\nticks ago | requested | ready | starting | cpu% | req/s | p95 ms | errors | you did\n15 | 1 | 1 | 0 | 2 | 0.0 | n/a | n/a | NO_CHANGE\n14 | 1 | 1 | 0 | 3 | 0.0 | n/a | n/a | NO_CHANGE\n13 | 1 | 1 | 0 | 2 | 0.0 | n/a | n/a | NO_CHANGE\n12 | 1 | 1 | 0 | 3 | 0.0 | n/a | n/a | NO_CHANGE\n11 | 1 | 1 | 0 | 2 | 0.0 | n/a | n/a | NO_CHANGE\n10 | 1 | 1 | 0 | 3 | 0.0 | n/a | n/a | NO_CHANGE\n9 | 1 | 1 | 0 | 10 | 1.7 | 15 | 0.0% | NO_CHANGE\n8 | 1 | 1 | 0 | 53 | 5.5 | 15 | 0.0% | NO_CHANGE\n7 | 1 | 1 | 0 | 51 | 13.1 | 17 | 0.0% | NO_CHANGE\n6 | 3 | 1 | 0 | 215 | 24.8 | 20 | 0.0% | SCALE_UP 2\n5 | 3 | 3 | 0 | 100 | 35.5 | 23 | 0.0% | NO_CHANGE\n4 | 3 | 3 | 0 | 137 | 34.3 | 25 | 0.0% | NO_CHANGE\n3 | 3 | 3 | 0 | 134 | 48.8 | 18 | 0.0% | NO_CHANGE\n2 | 3 | 3 | 0 | 133 | 53.6 | 15 | 0.0% | NO_CHANGE\n1 | 3 | 3 | 0 | 119 | 51.4 | 14 | 0.0% | NO_CHANGE\n\nDecide this tick's action. Reply with only the JSON object.", "cluster-v2-outcomes": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88%   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (limit 300 ms)   Errors: 0.0%\n\nYour recent decisions (oldest first, 15 s apart):\nticks ago | requested | ready | starting | cpu% | req/s | p95 ms | errors | you did | then (by the next reading)\n5 | 3 | 3 | 0 | 100 | 35.5 | 23 | 0.0% | NO_CHANGE | CPU 100->137%, p95 23->25 ms\n4 | 3 | 3 | 0 | 137 | 34.3 | 25 | 0.0% | NO_CHANGE | CPU 137->134%, p95 25->18 ms\n3 | 3 | 3 | 0 | 134 | 48.8 | 18 | 0.0% | NO_CHANGE | CPU 134->133%, p95 18->15 ms\n2 | 3 | 3 | 0 | 133 | 53.6 | 15 | 0.0% | NO_CHANGE | CPU 133->119%, p95 15->14 ms\n1 | 3 | 3 | 0 | 119 | 51.4 | 14 | 0.0% | NO_CHANGE | CPU 119->88%, p95 14->14 ms\n\nDecide this tick's action. Reply with only the JSON object.", "cluster-v2-trend": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88%   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (limit 300 ms)   Errors: 0.0%\nTrend over the last 4 readings (oldest to newest): request rate 48.8 req/s -> 34.6 req/s (falling), CPU 134% -> 88% (falling), p95 latency 18 ms -> 14 ms (flat)\n\nYour recent decisions (oldest first, 15 s apart):\nticks ago | requested | ready | starting | cpu% | req/s | p95 ms | errors | you did\n5 | 3 | 3 | 0 | 100 | 35.5 | 23 | 0.0% | NO_CHANGE\n4 | 3 | 3 | 0 | 137 | 34.3 | 25 | 0.0% | NO_CHANGE\n3 | 3 | 3 | 0 | 134 | 48.8 | 18 | 0.0% | NO_CHANGE\n2 | 3 | 3 | 0 | 133 | 53.6 | 15 | 0.0% | NO_CHANGE\n1 | 3 | 3 | 0 | 119 | 51.4 | 14 | 0.0% | NO_CHANGE\n\nDecide this tick's action. Reply with only the JSON object.", "cluster-v2-words": "Replicas: 3 requested, 3 ready, 0 starting (min 1, max 10)\nCPU: 88% (moderate)   Request rate: 34.6 req/s\nLatency: p50 7 ms, p95 14 ms (low) (limit 300 ms)   Errors: 0.0% (none)\n\nYour recent decisions (oldest first, 15 s apart):\nticks ago | requested | ready | starting | cpu% | req/s | p95 ms | errors | you did\n5 | 3 | 3 | 0 | 100 | 35.5 | 23 | 0.0% | NO_CHANGE\n4 | 3 | 3 | 0 | 137 | 34.3 | 25 | 0.0% | NO_CHANGE\n3 | 3 | 3 | 0 | 134 | 48.8 | 18 | 0.0% | NO_CHANGE\n2 | 3 | 3 | 0 | 133 | 53.6 | 15 | 0.0% | NO_CHANGE\n1 | 3 | 3 | 0 | 119 | 51.4 | 14 | 0.0% | NO_CHANGE\n\nDecide this tick's action. Reply with only the JSON object."}, "notes": {"trend": "- trend: how request rate, CPU and p95 latency changed over the last few readings, oldest to newest. These are the same one-minute averages, so they lag: a falling trend means the load is already lower than the level shown.", "words": "- Some numbers are followed by a word in brackets (low, moderate, high, ...) giving a rough reading of that number. The numbers are what count; the words are only a guide.", "outcomes": "- the last column of the recent-decisions table, 'then', shows how pods, CPU and p95 latency changed by the next reading (15 s later), so you can see what each past decision led to."}, "runs": [{"scenario": "gradual_ramp", "controller": "llm", "repeat": 1, "ticks": 13, "sla_violation_ticks": 0, "pod_minutes": 7.0, "peak_pods": 4.0, "mean_pods": 2.15, "scale_events": 2, "flaps": 0, "p95_max_ms": 24.6, "error_rate_max": 0.0, "decisions": 17, "applied": 2, "model_calls_failed": 0, "invalid_answers": 0, "guardrail_blocks": 0, "llm_latency_mean_s": 1.07, "prompt_version": "cluster-v1", "git_commit": "18654c30", "git_dirty": true, "suspect": "", "series": [[0, 1.0, 1.0, null, 0.0, 2.87], [15, 1.0, 1.0, null, 0.0, 8.9], [30, 1.0, 1.0, 14.67, 1.92, 20.78], [45, 1.0, 1.0, 14.81, 6.13, 53.23], [60, 1.0, 1.0, 17.04, 14.16, 129.7], [75, 1.0, 1.0, 19.52, 26.75, 257.44], [90, 3.0, 3.0, 24.58, 37.27, 114.46], [105, 3.0, 3.0, 19.89, 50.14, 133.7], [120, 3.0, 3.0, 18.21, 51.49, 150.75], [135, 3.0, 3.0, 14.45, 55.57, 132.94], [150, 3.0, 3.0, 14.45, 40.56, 105.05], [165, 3.0, 3.0, 14.14, 22.84, 77.03], [180, 4.0, 4.0, 14.0, 5.93, 29.34]]}, {"scenario": "gradual_ramp", "controller": "llm_trend", "repeat": 1, "ticks": 13, "sla_violation_ticks": 0, "pod_minutes": 6.75, "peak_pods": 3.0, "mean_pods": 2.08, "scale_events": 2, "flaps": 0, "p95_max_ms": 19.6, "error_rate_max": 0.0, "decisions": 17, "applied": 2, "model_calls_failed": 0, "invalid_answers": 0, "guardrail_blocks": 1, "llm_latency_mean_s": 0.96, "prompt_version": "cluster-v2-trend", "git_commit": "1b3ea1ca", "git_dirty": true, "suspect": "", "series": [[0, 1.0, 1.0, null, 0.0, 2.66], [15, 1.0, 1.0, 15.12, 0.87, 9.21], [30, 1.0, 1.0, 13.25, 2.73, 26.89], [45, 1.0, 1.0, 14.21, 8.69, 36.45], [60, 1.0, 1.0, 14.7, 18.73, 121.1], [75, 2.0, 2.0, 19.58, 28.93, 116.42], [90, 2.0, 2.0, 17.83, 44.02, 173.92], [105, 3.0, 3.0, 17.75, 46.52, 123.31], [120, 3.0, 3.0, 14.61, 45.89, 142.46], [135, 3.0, 3.0, 14.14, 49.42, 132.9], [150, 3.0, 3.0, 13.58, 35.63, 101.84], [165, 3.0, 3.0, 13.71, 22.87, 74.02], [180, 3.0, 3.0, 11.94, 6.42, 14.93]]}, {"scenario": "sudden_spike", "controller": "hpa", "repeat": 1, "ticks": 17, "sla_violation_ticks": 0, "pod_minutes": 28.5, "peak_pods": 10.0, "mean_pods": 6.71, "scale_events": 5, "flaps": 0, "p95_max_ms": 91.0, "error_rate_max": 0.0, "decisions": null, "applied": null, "model_calls_failed": null, "invalid_answers": null, "guardrail_blocks": null, "llm_latency_mean_s": null, "prompt_version": null, "git_commit": "1b3ea1ca", "git_dirty": true, "suspect": "", "series": [[0, 1.0, 1.0, null, 0.0, 2.48], [15, 1.0, 1.0, 91.0, 1.6, 33.86], [30, 2.0, 1.0, 28.5, 7.76, 39.88], [45, 3.0, 3.0, 17.63, 12.96, 48.61], [60, 3.0, 3.0, 14.49, 16.97, 53.93], [75, 3.0, 3.0, 13.41, 17.4, 45.56], [90, 4.0, 4.0, 18.15, 28.14, 51.61], [105, 7.0, 4.0, 16.94, 45.98, 51.15], [120, 10.0, 7.0, 14.74, 61.54, 58.87], [135, 10.0, 10.0, 13.97, 70.08, 65.17], [150, 10.0, 10.0, 12.79, 58.71, 56.58], [165, 10.0, 10.0, 12.27, 41.4, 36.96], [180, 10.0, 10.0, 9.87, 25.58, 19.16], [195, 10.0, 10.0, 9.66, 18.69, 16.31], [210, 10.0, 10.0, 9.63, 18.78, 16.45], [225, 10.0, 10.0, 9.64, 18.42, 16.12], [240, 10.0, 10.0, 9.55, 18.36, 16.11]]}, {"scenario": "sudden_spike", "controller": "llm", "repeat": 1, "ticks": 17, "sla_violation_ticks": 0, "pod_minutes": 9.75, "peak_pods": 3.0, "mean_pods": 2.29, "scale_events": 2, "flaps": 0, "p95_max_ms": 80.5, "error_rate_max": 0.0, "decisions": 21, "applied": 2, "model_calls_failed": 0, "invalid_answers": 0, "guardrail_blocks": 1, "llm_latency_mean_s": 1.04, "prompt_version": "cluster-v1", "git_commit": "1b3ea1ca", "git_dirty": true, "suspect": "", "series": [[0, 1.0, 1.0, null, 0.0, 2.32], [15, 1.0, 1.0, 80.5, 3.47, 2.32], [30, 1.0, 1.0, 14.92, 9.64, 74.94], [45, 1.0, 1.0, 14.5, 15.8, 143.41], [60, 2.0, 2.0, 13.66, 17.53, 60.55], [75, 2.0, 2.0, 12.93, 18.35, 85.23], [90, 2.0, 2.0, 23.22, 32.6, 120.98], [105, 2.0, 2.0, 23.39, 50.06, 180.63], [120, 3.0, 2.0, 24.01, 67.33, 260.83], [135, 3.0, 3.0, 19.12, 74.45, 178.32], [150, 3.0, 3.0, 17.93, 55.36, 157.06], [165, 3.0, 3.0, 14.62, 39.42, 110.08], [180, 3.0, 3.0, 12.93, 20.73, 49.67], [195, 3.0, 3.0, 11.28, 18.67, 50.47], [210, 3.0, 3.0, 12.24, 18.44, 47.6], [225, 3.0, 3.0, 12.95, 18.62, 51.57], [240, 3.0, 3.0, 13.35, 18.31, 50.4]]}, {"scenario": "sudden_spike", "controller": "llm_trend", "repeat": 1, "ticks": 17, "sla_violation_ticks": 0, "pod_minutes": 11.75, "peak_pods": 4.0, "mean_pods": 2.76, "scale_events": 2, "flaps": 0, "p95_max_ms": 67.1, "error_rate_max": 0.0, "decisions": 21, "applied": 2, "model_calls_failed": 0, "invalid_answers": 1, "guardrail_blocks": 4, "llm_latency_mean_s": 0.99, "prompt_version": "cluster-v2-trend", "git_commit": "1b3ea1ca", "git_dirty": true, "suspect": "", "series": [[0, 1.0, 1.0, null, 0.0, 2.84], [15, 1.0, 1.0, 67.12, 1.4, 46.3], [30, 1.0, 1.0, 19.45, 7.6, 82.81], [45, 2.0, 1.0, 14.84, 13.8, 110.63], [60, 2.0, 2.0, 13.53, 18.04, 79.4], [75, 2.0, 2.0, 13.18, 19.48, 75.85], [90, 2.0, 2.0, 26.61, 25.56, 131.1], [105, 2.0, 2.0, 23.46, 43.92, 199.14], [120, 2.0, 2.0, 23.04, 63.67, 265.35], [135, 4.0, 4.0, 19.97, 75.07, 131.74], [150, 4.0, 4.0, 19.19, 63.2, 141.13], [165, 4.0, 4.0, 17.01, 44.52, 80.61], [180, 4.0, 4.0, 13.01, 26.33, 38.54], [195, 4.0, 4.0, 9.98, 18.47, 35.69], [210, 4.0, 4.0, 10.27, 18.53, 38.32], [225, 4.0, 4.0, 10.6, 18.53, 39.66], [240, 4.0, 4.0, 10.95, 18.6, 39.82]]}]}</script><!--MEETING_DATA_END-->
+
+  <h2>1 · The testing ladder</h2>
+  <p class="muted">Three places to test a prompt, from cheap and fast to slow and realistic. Use the cheap ones to shortlist and the slow one to confirm.</p>
+  <div class="ladder">
+    <div class="card rung"><span class="tag new">Built today</span><h3>Prompt lab</h3>
+      <div class="spec"><span><b>441 calls</b> in 69 s</span><span><b>under $1</b> (estimate)</span><span><b>no cluster</b></span></div>
+      <p class="muted small">Replays real recorded situations against each prompt variant, several times each. It is open-loop: it judges one decision, not what that decision causes next.</p>
+      <p class="small"><b>Use it for:</b> quick A/B of wording, format and history.</p></div>
+    <div class="go">→</div>
+    <div class="card rung"><span class="tag info">Already existed</span><h3>Simulator</h3>
+      <div class="spec"><span><b>1–2 min</b> per run</span><span><b>cached</b></span><span><b>operator notes</b></span></div>
+      <p class="muted small">Fast, repeatable, and the only place with operator context today. It uses a different prompt and a simplified world, so its own docs call it a pilot.</p>
+      <p class="small"><b>Use it for:</b> prototyping the context experiments.</p></div>
+    <div class="go">→</div>
+    <div class="card rung"><span class="tag pass">Extended today</span><h3>Real cluster</h3>
+      <div class="spec"><span><b>5–6 min</b> per run</span><span><b>closed loop</b></span><span><b>real latency</b></span></div>
+      <p class="muted small">The real thing, now with a scoring script: SLA-violation ticks, pod-minutes, flaps, and a warning when model calls fail. Needs repeats on one machine.</p>
+      <p class="small"><b>Use it for:</b> confirming a shortlisted prompt.</p></div>
+  </div>
+
+  <h2>2 · Seven prompts, one change each</h2>
+  <p class="muted">Each variant differs from the baseline by one thing, and a unit test proves it. This includes the "diary" idea from the SAIR paper: more past decisions, and what each one led to. Pick one to see what the model receives at the moment of the live mistake (tick 15).</p>
+  <div class="vpills" id="vPills" role="tablist"></div>
+  <div class="grid g2">
+    <div class="card" id="vInfo"></div>
+    <div class="card"><b>What the model sees at tick 15</b> <span class="small muted">(highlighted = added by this variant)</span><pre id="vPrompt" class="promptbox"></pre><div class="small muted" id="vRemoved"></div></div>
+  </div>
+
+  <h2>3 · Test A: the situations we designed on <span class="tag found">Dev set</span></h2>
+  <p class="muted">Three real situations from our first run, each asked 5 times per prompt. Click a situation, then click a row to read the model's own reasons.</p>
+  <div class="vpills" id="lPills" role="tablist"></div>
+  <div class="card" id="lCase"></div>
+  <div id="lBars" class="lbars"></div>
+  <div class="legend"><span><em style="background:var(--line)"></em>held (NO_CHANGE)</span><span><em style="background:var(--orange)"></em>added pods</span><span><em style="background:var(--teal)"></em>removed pods</span><span><em style="background:var(--red)"></em>failed or unusable</span></div>
+  <div class="grid g4" id="lTotals" style="margin-top:10px"></div>
+  <p class="small muted" id="lTotalsNote"></p>
+  <div class="callout good"><p><b>On this set, almost every change fixed the mistake.</b> The baseline got the tick-15 situation wrong in every answer of the second run (and 4 of 5 in the first). The trend line, 10 or 15 past decisions, and the outcomes column all got it right every time. Only the words did not.</p></div>
+
+  <h2>4 · Test B: situations nobody designed a prompt on <span class="tag new">Held out</span></h2>
+  <p class="muted" id="hIntro"></p>
+  <div class="card scroll"><table id="hTable"></table></div>
+  <div class="callout bad"><p><b>The winners changed.</b> The 15-decision history, which was perfect on Test A, gave 13 scale-up answers (16 pods asked for) where the baseline gave 3 (4 pods). That includes <b>adding pods at tick 15, while the load was already falling</b>: the same kind of mistake, in a new place. The trend line behaved most sensibly: it scaled up at the same tick as the baseline, scaled up less than the long-history and outcomes prompts, and noticed when the load had dropped and asked to remove pods. The outcomes column was more eager to add pods. The no-history and 10-decision prompts rarely scaled up at all.</p></div>
+  <h3>Where the prompts disagree with the baseline</h3>
+  <div class="card scroll"><table id="hDiffs"></table></div>
+  <p class="small muted">No one has judged these situations yet. The highest p95 the model saw in these situations was 80 ms, far below the 300 ms limit, so an extra pod was cost and not protection here. But "should it have scaled?" still needs a human to decide, which is the first next step below.</p>
+
+  <h2>5 · Test C: does it hold on the real cluster? <span class="tag found">Single runs</span></h2>
+  <p class="muted">Closed-loop runs on the real cluster, scored by the new script. Pick a scenario; click a name in the legend to hide or show that run.</p>
+  <div class="vpills" id="cPills" role="tablist"></div>
+  <div class="card"><div class="scroll"><div style="min-width:640px"><svg id="cmpChart" class="chart" viewBox="0 0 720 470" role="img" aria-label="Request rate, pods and p95 latency over time for each run in the chosen scenario"></svg></div></div>
+    <div class="legend" id="cLegend"></div></div>
+  <div class="card scroll" style="margin-top:12px"><table id="cTable"></table></div>
+  <div class="grid g2" style="margin-top:12px">
+    <div class="callout warn" style="margin:0"><p><b>No run had a single SLA violation.</b> The worst p95 anywhere was 91 ms against a 300 ms limit, even on <span class="mono">sudden_spike</span>. So on the current scenarios, latency cannot tell the prompts apart. Only cost and behavior can. To test the actual goal we need a load that really threatens 300 ms.</p></div>
+    <div class="callout bad" style="margin:0"><p><b>Do not quote the cost gap yet.</b> On <span class="mono">sudden_spike</span> HPA used 28.5 pod-minutes and went to 10 pods; the LLM baseline used 9.8 and peaked at 3, with the same latency. But HPA's 60% CPU target is measured against a 100m request while pods may burst to 500m, so it is very conservative here. A tuned HPA is needed before any "the LLM saves cost" claim.</p></div>
+  </div>
+  <ul class="tight">
+    <li><b>The trend prompt did not add the extra pod</b> on <span class="mono">gradual_ramp</span> (3 pods, 6.8 pod-minutes, against 4 pods and 7.0 for the baseline). One run each, so this agrees with the lab but proves nothing.</li>
+    <li><b>Scale-down is slow.</b> On <span class="mono">sudden_spike</span> the trend run asked to remove a pod on four ticks in a row (16 to 19) and the 120 s cooldown blocked every one, so it ended with 4 pods; the baseline ended with 3. The cooldown, not the prompt, dominated the cost after the spike.</li>
+    <li><b>One answer broke the format:</b> the trend run's tick 20 came back in a code fence with no <span class="mono">amount</span> field, so it was thrown away. The prompt says "no code fences". 1 of 21 decisions.</li>
+    <li><b>Pointless answers at the minimum:</b> both runs answered "SCALE_DOWN 2 or 3" at tick 0 with one pod, which is impossible. The guardrails absorbed it, but the prompt never says "at the minimum, hold".</li>
+  </ul>
+
+  <h2>6 · What this suggests about prompting</h2>
+  <div class="grid g2 stagger">
+    <div class="card"><span class="tag bad">Finding</span> <b>The baseline misreads its own history table</b><p class="muted small">At the live mistake it quoted old rows as current ("CPU spiking to 137%") and called a flat p95 "trending upward". A table of numbers does not say which way things are heading. In Test A, a trend line, a longer history or an outcomes column all fixed it; words next to the numbers did not.</p></div>
+    <div class="card"><span class="tag bad">Finding</span> <b>Fixes designed on one example do not transfer</b><p class="muted small">The 15-decision history fixed Test A and was the most trigger-happy prompt in Test B. Winners on the dev set are not winners on held-out data. This is why keeping a held-out set matters, and why one example is never enough.</p></div>
+    <div class="card"><span class="tag found">Lead</span> <b>The trend line generalised best</b><p class="muted small">In Test B it matched the baseline's first scale-up, scaled up less than the long-history and outcomes prompts, and asked to remove pods once the load fell. It is the prompt to take into the cluster repeats, with the caution that it was also the one we designed after seeing the bug.</p></div>
+    <div class="card"><span class="tag found">Lead</span> <b>History cuts both ways</b><p class="muted small">No history made the model passive (it never scaled up in Test B). A long history made it jumpy. SAIR's "diary helps" is true only if the diary can be read; a short, explicit summary of direction seems to read better than rows of numbers.</p></div>
+    <div class="card"><span class="tag bad">Finding</span> <b>Format compliance is a prompting problem</b><p class="muted small">Code fences, missing fields and out-of-range amounts caused 1 invalid answer in the cluster run and 3 in the lab, all from the idle one-pod situation. Candidate fix: say the bounds plainly ("at the minimum, answer NO_CHANGE") and show one example reply. This needs no parser change.</p></div>
+    <div class="card"><span class="tag info">Method</span> <b>Answers vary, so repeat</b><p class="muted small">The same prompt gave different answers to the same moment. The model no longer accepts a temperature setting, so one answer proves little. Use 5 or more answers per situation in the lab and 3 or more repeats on the cluster.</p></div>
+  </div>
+
+  <h2>7 · How to run prompt work from here</h2>
+  <div class="card"><p class="muted small" style="margin-top:0">No model weights are trained in this project. "Training" here means prompt engineering plus evaluation, so the discipline is the evaluation:</p>
+    <ol class="tight">
+      <li><b>Fix the score first:</b> SLA-violation ticks, pod-minutes, flaps, and failed or invalid model calls (<span class="mono">summarize_cluster.py</span>).</li>
+      <li><b>Keep two sets of situations:</b> a <i>dev</i> set to design prompts on, and a <i>held-out</i> set to judge them. We now have one of each (<span class="mono">experiments/prompt_lab_cases/</span>). Never design a prompt on the held-out set.</li>
+      <li><b>One change per variant,</b> a new name, and a unit test that it differs only by that change.</li>
+      <li><b>Lab to shortlist, cluster to confirm:</b> at least 5 answers per situation in the lab, at least 3 repeats per scenario on the cluster, on the machine Daryan uses for final numbers.</li>
+      <li><b>Never use a run with failed model calls,</b> and report prompts that did not help.</li>
+      <li><b>Later, optionally:</b> search prompts automatically against the lab once the held-out set is big enough to trust.</li>
+    </ol></div>
+
+  <h2>8 · Next experiments, in order</h2>
+  <div class="card scroll"><table>
+    <thead><tr><th>#</th><th>Experiment</th><th>Why</th><th>Effort</th><th>Needs</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>Judge the held-out situations.</b> A person marks which of the 21 are clear holds, adds or removals</td><td>Turns Test B from "how they behave" into "how often they are right"</td><td>about 1 hour</td><td>a human, ideally two</td></tr>
+      <tr><td>2</td><td><b>Add a tuned-HPA control</b> (and check KEDA's settings)</td><td>Any cost claim against a conservative HPA is a strawman</td><td>small</td><td>Daryan: the HPA plugin</td></tr>
+      <tr><td>3</td><td><b>A heavier-load scenario</b> that can threaten 300 ms</td><td>Right now latency cannot separate the prompts</td><td>small code, but cluster limits</td><td>Daryan: shared scenarios and laptop capacity</td></tr>
+      <tr><td>4</td><td><b>A format-and-bounds prompt fix</b> (state the bounds, one example reply)</td><td>Removes invalid and impossible answers</td><td>small</td><td>nothing new</td></tr>
+      <tr><td>5</td><td><b>Cluster repeats</b>: baseline, trend and outcomes, 3 repeats on 2 or 3 scenarios</td><td>Confirms or kills the lab shortlist</td><td>about 6 min per run, so 1 to 2 hours</td><td>one machine, clean git tree</td></tr>
+      <tr><td>6</td><td><b>Combinations</b>, only after singles: trend plus 10 decisions, trend plus outcomes</td><td>Singles first, or we cannot tell what helped</td><td>small</td><td>nothing new</td></tr>
+      <tr><td>7</td><td><b>Operator context</b> on <span class="mono">spike_with_warning</span>, with a misleading-note control</td><td>The core hypothesis</td><td>days</td><td>Daryan: the notes channel design</td></tr>
+      <tr><td>8</td><td><b>Look-ahead and scheduled baselines</b>, then <b>LLM manages HPA</b></td><td>Separate "understood" from "scaled early"; the fallback architecture</td><td>days</td><td>agree who builds them</td></tr>
+    </tbody></table></div>
+
+  <h2>9 · Decisions to ask the team for</h2>
+  <div class="card"><ul class="tight">
+    <li><b>Headline metrics.</b> Are SLA-violation ticks, pod-minutes and flaps the right three? (The simulator already uses the first two.) Since latency never moves, should cost and behavior carry the comparison until we have a heavier load?</li>
+    <li><b>A fair HPA.</b> What target should the HPA baseline use? Is a second, tuned HPA an acceptable control?</li>
+    <li><b>Heavier load.</b> Can we add a scenario that threatens 300 ms, given the 4-CPU Minikube limit?</li>
+    <li><b>Prompt variants as plugin folders.</b> I added <span class="mono">llm_nohist</span>, <span class="mono">llm_trend</span> and <span class="mono">llm_words</span> under <span class="mono">controllers/</span> so each gets its own results folder. Fine, or should the runner get a <span class="mono">--label</span> flag (Daryan's file)? The other variants have no folder yet; they get one only if they survive the lab.</li>
+    <li><b>The notes channel.</b> How do operator notes reach a cluster controller without breaking the "don't know you're being evaluated" rule?</li>
+    <li><b>One LLM controller.</b> Max's <span class="mono">k8s_run.py</span> and our plugin use different prompts and timers (scale-down 60 s vs 120 s). Which is the one we compare? And is 120 s the right cooldown, given it dominated post-spike cost?</li>
+    <li><b>Final-numbers protocol and model policy.</b> Which scenarios, repeats and machine? Haiku 4.5 rejects temperature: leave it off for every model?</li>
+    <li><b>Held-out discipline.</b> Who may design prompts on which cases, and who judges them?</li>
+  </ul></div>
+
+  <div class="notes"><b>Say this</b><ul>
+    <li>We can now test a prompt change in about a minute in the lab and confirm it on the cluster with a scoring script.</li>
+    <li>Seven prompts tried, including the SAIR-style diary. On the situations we designed on, nearly everything fixed the mistake. On new situations, the long history became the most trigger-happy and the trend line held up best.</li>
+    <li>Two warnings: latency never moved in any run, and the HPA baseline looks too conservative to compare against fairly.</li>
+    <li>Asks: a fair HPA, a heavier load, a human to judge the held-out situations, and the notes-channel design.</li>
+  </ul></div>
+</section>
+
+<footer>
+  Our-test numbers: <code>experiments/results/gradual_ramp/llm/repeat_1/</code> (not committed). Phase 1: <code>docs/phase1_run.html</code>. Research: that page and <code>docs/onboarding/related_works.md</code>.
+  Sources the team cites: arXiv 2601.22397 (SAIR), 2602.05292 (ORACL), 2609.20874 (startup delays); not re-checked by us.
+</footer>
+</main>
+
+<script>
+"use strict";
+const RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const NS = "http://www.w3.org/2000/svg";
+
+/* =====================================================================  DATA  */
+// Our run: experiments/results/gradual_ramp/llm/repeat_1/metrics.csv (one row per 15 s)
+const D_T   = [0,15,30,45,60,75,90,105,120,135,150,165,180];
+const D_RPS = [0,0,1.9221,6.1328,14.1581,26.7511,37.2667,50.1379,51.4915,55.5707,40.5556,22.8444,5.9333];
+const D_CPU = [2.8681,8.9044,20.7763,53.2318,129.6999,257.438,114.4558,133.6957,150.7503,132.937,105.0524,77.0302,29.3368];
+const D_P95 = [null,null,14.668,14.8138,17.0388,19.5155,24.5809,19.8919,18.2137,14.4463,14.4502,14.1353,14.004];
+const D_READY = [1,1,1,1,1,1,3,3,3,3,3,3,4];                       // pods ready at each reading
+const D_PODS = [[0,1],[74,1],[74,3],[164,3],[164,4],[180,4]];       // pods requested (step line)
+const D_PLAN = [[0,4],[18,4],[72,60],[126,60],[135,4],[180,4]];     // load being sent, ~2 req/s per user (gradual_ramp.py)
+const D_DECISIONS = [{t:74, label:"+2 pods"}, {t:164, label:"+1 pod"}];
+// Controller log: [tick, seconds from load start, req/s, cpu %, p95 ms, pods ready, action, reason (shortened)]
+const D_TICKS = [
+ [0,-62,0,2,null,1,"NO_CHANGE","Service is idle with no requests and minimal CPU usage; maintain singl…"],
+ [1,-47,0,3,null,1,"NO_CHANGE","No traffic arriving; single replica is sufficient and within bounds."],
+ [2,-32,0,2,null,1,"NO_CHANGE","No traffic arriving; single replica sufficient at minimum capacity."],
+ [3,-17,0,3,null,1,"NO_CHANGE","No traffic, latency unmeasurable, CPU minimal; maintain minimum replic…"],
+ [4,-2,0,2,null,1,"NO_CHANGE","No traffic arriving; single replica is sufficient for idle service."],
+ [5,13,0,3,null,1,"NO_CHANGE","No traffic arriving; single replica is sufficient and meets minimum re…"],
+ [6,28,1.7,10,14.7,1,"NO_CHANGE","Service is healthy with low CPU (10%), fast latency (p95 15ms well bel…"],
+ [7,44,5.5,53,14.8,1,"NO_CHANGE","Service is healthy with low latency (p95 15ms), zero errors, and CPU a…"],
+ [8,59,13.1,51,17.0,1,"NO_CHANGE","Service is healthy with low latency (p95 17ms well below 300ms limit),…"],
+ [9,74,24.8,215,19.5,1,"SCALE_UP +2 (1 → 3)","CPU at 215% indicates pod is heavily overloaded; request rate doubled in one tick to 24.8 req/s and will cause latency to spike without additional capacity."],
+ [10,89,35.5,100,22.8,3,"NO_CHANGE","CPU at 100% but latency p95 at 23ms is well below 300ms limit; recent …"],
+ [11,103,34.3,137,24.8,3,"NO_CHANGE","Service performing well with p95 latency at 25ms (well below 300ms lim…"],
+ [12,119,48.8,134,18.1,3,"NO_CHANGE","Latency and errors are healthy; CPU is elevated but manageable with 3 …"],
+ [13,133,53.6,133,14.5,3,"NO_CHANGE","Latency and error rate are healthy; CPU is high but manageable and loa…"],
+ [14,148,51.4,119,14.4,3,"NO_CHANGE","Latency and errors are healthy; CPU is elevated but not critical and l…"],
+ [15,164,34.6,88,14.3,3,"SCALE_UP +1 (3 → 4)","CPU usage spiked to 88% with high volatility (119-137% in recent ticks), indicating we're approaching saturation; p95 latency is still low but growing trend suggests proactive scaling is needed."],
+ [16,178,17.0,30,14.1,4,"NO_CHANGE","Service is healthy with low latency (p95 14ms), zero errors, and CPU a…"]
+];
+const NOTES = [ // replay commentary: [from, to, text, style]
+ [-62, 0,   "<b>Settling.</b> No traffic yet. The model correctly does nothing, every tick.", ""],
+ [0,  60,   "<b>Load begins ramping</b> (2 → 30 simulated users). CPU climbs; latency stays tiny.", ""],
+ [60, 74,   "<b>One pod is at 130–257% CPU.</b> Watch the next decision.", "alert"],
+ [74, 90,   "<b>Tick 9: a good call.</b> The model sees 215% CPU and the request rate doubling, and adds 2 pods (1 → 3).", "alert"],
+ [90, 126,  "<b>Three pods share the peak.</b> CPU settles around 100–150%, latency stays under 25 ms. The model correctly leaves it alone.", ""],
+ [126, 164, "<b>The load is already falling</b> (the generator is back to 2 users by 135 s), but the model's numbers are 1-minute averages, so they still look busy.", ""],
+ [164, 181, "<b>Tick 15: probably a mistake.</b> The model reads a falling number as a spike and adds a 4th pod (3 → 4) for an almost idle service.", "bad"]
+];
+// Phase 1 (docs/phase1_run.html): [seconds, avg CPU % or null, replicas]
+const HPA = [[0,null,1],[21,9,1],[43,49,1],[64,61,1],[86,65,1],[108,73,2],[132,77,2],[154,132,2],[175,70,2],[196,70,3],[217,60,3],[237,58,3],[257,61,3],[278,60,3],[298,66,3],[319,63,3],[339,59,3],[359,64,3],[380,61,3],[400,20,3],[420,12,3],[441,11,3],[462,6,3],[482,6,3],[503,6,3],[523,6,3],[543,6,3],[564,7,3],[584,6,3],[604,6,3],[625,6,3],[645,6,3],[666,7,3],[686,6,3],[706,6,1],[727,7,1],[747,7,1],[768,7,1],[788,8,1],[808,8,1],[829,7,1],[849,8,1]];
+// Research (arXiv 2609.20874, Table I simulation, as quoted on the team page): [name, % too slow, avg pods, looks ahead]
+const CTRL = [["HPA-style (reacts to request rate)",52.5,2.1,false],["Reacts to token load",20.9,4.8,false],["Reacts to queue / memory",19.0,6.0,false],["Looks ahead (EWMA)",1.44,9.9,true],["Looks ahead + safety margin",0.54,9.5,true]];
+const fmt1 = v => v == null ? "n/a" : (Math.round(v * 10) / 10).toString();
+const fmtT = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+
+/* =====================================================================  TABS  */
+const TABS = ["overview","how","phase1","tests","research","insights","meeting"];
+const inited = {};
+function showTab(id, push = true) {
+  if (!TABS.includes(id)) id = "overview";
+  TABS.forEach(t => { $("#p-" + t).hidden = t !== id; });
+  $$(".tab").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === id));
+  $("#prog").style.width = ((TABS.indexOf(id) + 1) / TABS.length * 100) + "%";
+  if (push) history.replaceState(null, "", "#" + id);
+  window.scrollTo({ top: 0, behavior: "auto" });
+  if (id !== "tests") replay.pause();
+  ({ overview: initOverview, how: initHow, phase1: initPhase1, tests: initTests, research: initResearch, insights: initInsights, meeting: initMeeting })[id]();
+}
+$$(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+document.addEventListener("keydown", e => {
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox") return;
+  const cur = TABS.findIndex(t => !$("#p-" + t).hidden);
+  if (e.key === "ArrowRight" && cur < TABS.length - 1) showTab(TABS[cur + 1]);
+  if (e.key === "ArrowLeft" && cur > 0) showTab(TABS[cur - 1]);
+});
+$("#notesToggle").addEventListener("change", e => document.body.classList.toggle("show-notes", e.target.checked));
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1), false));
+
+function countUp(el) {
+  const target = +el.dataset.count; if (RM) { el.textContent = target.toLocaleString(); return; }
+  const t0 = performance.now(), dur = 1100;
+  const tick = now => { const f = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - f, 3);
+    el.textContent = Math.round(target * e).toLocaleString(); if (f < 1) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+
+/* =====================================================================  1 OVERVIEW  */
+function initOverview() {
+  $$("#p-overview [data-count]").forEach(countUp);
+  const fill = $("#roadfill"); fill.style.width = "0"; setTimeout(() => fill.style.width = "34%", 60);
+}
+
+/* =====================================================================  2 HOW IT WORKS  */
+const STEPS = [
+  { t: "Observe", body: () => `<h3>1 · Observe</h3><p>The controller reads the latest metrics from Prometheus and asks Kubernetes how many pods the Deployment currently wants. (It asks Kubernetes directly because the metrics can still show the value from before its own last change.)</p>
+      <pre><code>{ "replicas_ready": 1, "replicas_starting": 0,
+  "cpu_utilization_pct": 215,
+  "request_rate_rps": 24.8,
+  "latency_p95_ms": 19.5, "error_rate": 0.0 }
+kubectl says: 1 pod requested</code></pre><p class="small muted">Numbers from tick 9 of our run.</p>` },
+  { t: "Ask the model", body: () => `<h3>2 · Ask the model</h3><p>The numbers become a short message, sent with a fixed system prompt that explains the goal (p95 under 300 ms, errors near zero, as few pods as possible) and how the service behaves. It also sees its last 5 decisions. It is never told which test is running.</p>
+      <pre><code>Replicas: 1 requested, 1 ready, 0 starting (min 1, max 10)
+CPU: 215%   Request rate: 24.8 req/s
+Latency: p95 19 ms (limit 300 ms)   Errors: 0.0%
+
+Your recent decisions (oldest first, 15 s apart): …
+Decide this tick's action. Reply with only the JSON object.</code></pre>
+      <p class="small muted">Format from <code>controllers/llm/prompt.py</code>; values from tick 9. A real call took about 1 s.</p>` },
+  { t: "Check the answer", body: () => `<h3>3 · Check the answer</h3><p>The model replied:</p>
+      <pre><code>{"action": "SCALE_UP", "amount": 2,
+ "reason": "CPU at 215% indicates pod is heavily overloaded; request rate doubled in one tick…"}</code></pre>
+      <p>The parser accepts only <code>SCALE_UP</code>, <code>SCALE_DOWN</code> or <code>NO_CHANGE</code> with an amount of 1 to 3. This one is valid. Anything else would have become <code>NO_CHANGE</code>.</p><span class="pill" style="background:var(--green-bg);color:var(--green)">✓ valid answer</span>` },
+  { t: "Guardrails", body: () => `<h3>4 · Guardrails</h3><p>Plain code, not the model, decides what is allowed:</p>
+      <ul class="tight"><li>Pods must stay between 1 and 10.</li><li>After any change, wait 30 s before another.</li><li>After any change, wait 120 s before removing pods.</li></ul>
+      <p>Here: 1 + 2 = 3, inside the bounds, and the controller had never scaled before, so no cooldown applies. Target: <b>3 pods</b>.</p>
+      <div class="pods10"><i class="on"></i><i class="add"></i><i class="add"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>` },
+  { t: "Act", body: () => `<h3>5 · Act</h3><p>Only if the guarded target differs from what is running, the controller runs one command. This is the only code in the project that changes the pod count for the LLM controller.</p>
+      <pre><code>kubectl --context scale -n scale scale deployment scale-app --replicas=3</code></pre>
+      <p>Result: the new pods were ready by the next 15 s reading, and CPU fell from 215% to about 114%.</p><span class="pill" style="background:var(--green-bg);color:var(--green)">✓ applied</span>` }
+];
+let step = 0, stepTimer = null;
+function renderStep() {
+  $$("#steps .stepbtn").forEach((b, i) => { b.classList.toggle("on", i === step); b.classList.toggle("done", i < step); });
+  $("#stage").innerHTML = STEPS[step].body();
+  $("#stepPrev").disabled = step === 0; $("#stepNext").disabled = step === STEPS.length - 1;
+}
+function stopStepPlay() { clearInterval(stepTimer); stepTimer = null; $("#stepPlay").textContent = "▶ Play"; }
+function initHow() {
+  if (!inited.how) {
+    inited.how = true;
+    $("#steps").innerHTML = STEPS.map((s, i) => `<button class="stepbtn" data-i="${i}"><i>${i + 1}</i>${s.t}</button>`).join("");
+    $$("#steps .stepbtn").forEach(b => b.addEventListener("click", () => { stopStepPlay(); step = +b.dataset.i; renderStep(); }));
+    $("#stepNext").addEventListener("click", () => { stopStepPlay(); if (step < STEPS.length - 1) { step++; renderStep(); } });
+    $("#stepPrev").addEventListener("click", () => { stopStepPlay(); if (step > 0) { step--; renderStep(); } });
+    $("#stepPlay").addEventListener("click", () => {
+      if (stepTimer) return stopStepPlay();
+      if (step === STEPS.length - 1) step = 0; renderStep(); $("#stepPlay").textContent = "❚❚ Pause";
+      stepTimer = setInterval(() => { if (step < STEPS.length - 1) { step++; renderStep(); } else stopStepPlay(); }, 3800);
+    });
+    ["gAction","gAmount","gCur","gSince"].forEach(id => $("#" + id).addEventListener("input", renderGuard));
+  }
+  renderStep(); renderGuard();
+}
+// Mirrors apply_guardrails() in controllers/llm/main.py
+function guard(action, amount, current, since) {
+  const MIN = 1, MAX = 10, CD = 30, SDCD = 120;
+  if (action === "NO_CHANGE") return { target: current, note: "The model chose NO_CHANGE." };
+  if (since !== null && since < CD) return { target: current, note: `Blocked: cooldown. Scaled ${since}s ago, must hold ${CD}s.` };
+  if (action === "SCALE_DOWN" && since !== null && since < SDCD) return { target: current, note: `Blocked: scale-down cooldown. Scaled ${since}s ago, must hold ${SDCD}s before removing pods.` };
+  const wanted = current + (action === "SCALE_UP" ? amount : -amount), target = Math.max(MIN, Math.min(MAX, wanted));
+  return { target, note: target !== wanted ? `Clamped ${wanted} to ${target} (bounds ${MIN}-${MAX}).` : "" };
+}
+function renderGuard() {
+  const sel = $("#gAction").value, amount = +$("#gAmount").value, cur = +$("#gCur").value, sinceRaw = +$("#gSince").value;
+  const since = sinceRaw >= 200 ? null : sinceRaw;
+  $("#oAmount").textContent = amount; $("#oCur").textContent = cur; $("#oSince").textContent = since === null ? "never" : since + " s";
+  $("#gAmount").disabled = sel === "NO_CHANGE" || sel === "garbled" || sel === "range";
+  let target, note, kind;
+  if (sel === "garbled") { target = cur; note = "The reply isn't valid JSON, so the parser treats it as NO_CHANGE. Nothing happens."; kind = "none"; }
+  else if (sel === "range") { target = cur; note = "An amount of 7 is outside 1 to 3, so the answer is rejected as invalid. NO_CHANGE. Nothing happens."; kind = "none"; }
+  else { const g = guard(sel, amount, cur, since); target = g.target; note = g.note; kind = target !== cur ? "ok" : (sel === "NO_CHANGE" ? "none" : "hold"); }
+  const draw = (id, n, from) => { $("#" + id).innerHTML = Array.from({ length: 10 }, (_, i) => {
+    let c = ""; if (id === "gBefore") c = i < cur ? "on" : ""; else c = i < Math.min(n, from) ? "on" : i < n ? "add" : i < from ? "rem" : ""; return `<i class="${c}"></i>`; }).join(""); };
+  draw("gBefore", cur, cur); draw("gAfter", target, cur);
+  const applied = target !== cur;
+  const msg = applied ? `kubectl scale → ${target} pods (${target > cur ? "+" : ""}${target - cur}). ${note}` : `No change: stays at ${cur} pods. ${note || "The guarded target equals the current count, so kubectl is not called."}`;
+  const v = $("#gVerdict"); v.className = "verdict " + (applied ? "ok" : kind === "hold" ? "hold" : "none"); v.textContent = msg;
+}
+
+/* =====================================================================  CHART HELPERS  */
+function mk(parent, name, attrs, text) { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text !== undefined) e.textContent = text; parent.appendChild(e); return e; }
+const pathOf = pts => pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+
+// Phase 1 hover chart (adapted from docs/phase1_run.html)
+const P1_PHASES = [[0,180,"ramp up"],[180,360,"hold"],[360,420,"drop"],[420,706,"HPA waits 5 min"],[706,850,"idle"]];
+function usersAt(t) { const stages = [[60,10,1],[120,20,1],[180,30,1],[360,30,1],[420,2,5]]; let u = 0, prev = 0;
+  for (const [end, target, rate] of stages) { if (t <= prev) break; const dt = Math.min(t, end) - prev; u = target >= u ? Math.min(target, u + rate * dt) : Math.max(target, u - rate * dt); prev = end; } return t > 420 ? 0 : u; }
+function hoverChart(el, pts, o) {
+  const W = 900, H = o.h || 170, L = 40, R = 12, T = 12, B = 26, X1 = 850, ymax = o.ymax;
+  const x = v => L + v / X1 * (W - L - R), y = v => T + (1 - v / ymax) * (H - T - B);
+  el.innerHTML = ""; const svg = mk(el, "svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": o.label });
+  P1_PHASES.forEach(([a, b, name], i) => { if (i % 2 === 0) mk(svg, "rect", { x: x(a), y: T, width: x(b) - x(a), height: H - T - B, fill: "var(--blue)", opacity: .06 });
+    if (o.phaseLabels) mk(svg, "text", { x: (x(a) + x(b)) / 2, y: T + 12, "text-anchor": "middle", class: "ax" }, name); });
+  o.yticks.forEach(v => { mk(svg, "line", { class: "g", x1: L, x2: W - R, y1: y(v), y2: y(v) }); mk(svg, "text", { class: "ax", x: L - 8, y: y(v) + 4, "text-anchor": "end" }, v + (o.unit || "")); });
+  for (let m = 0; m <= 14; m += 2) mk(svg, "text", { class: "ax", x: x(m * 60), y: H - 6, "text-anchor": "middle" }, m + " min");
+  if (o.ref != null) { mk(svg, "line", { x1: L, x2: W - R, y1: y(o.ref), y2: y(o.ref), stroke: "var(--muted)", "stroke-dasharray": "5 4", "stroke-width": 1.5 });
+    mk(svg, "text", { x: W - R, y: y(o.ref) - 6, "text-anchor": "end", class: "ax" }, "target " + o.ref + "%"); }
+  const valid = pts.filter(p => p[1] != null); let d = "";
+  valid.forEach((p, i) => { d += i === 0 ? `M${x(p[0])},${y(p[1])}` : o.step ? `H${x(p[0])}V${y(p[1])}` : `L${x(p[0])},${y(p[1])}`; });
+  if (o.step) d += `H${x(X1)}`;
+  const area = mk(svg, "path", { d: `${d}V${y(0)}H${x(valid[0][0])}Z`, fill: "var(--blue)", opacity: .13, class: "areafade" });
+  const line = mk(svg, "path", { d, fill: "none", stroke: "var(--blue)", "stroke-width": 2.2, "stroke-linejoin": "round", class: "draw" });
+  const len = line.getTotalLength(); if (!RM) { line.style.strokeDasharray = len; line.style.strokeDashoffset = len; requestAnimationFrame(() => requestAnimationFrame(() => { line.style.strokeDashoffset = 0; })); }
+  setTimeout(() => area.classList.add("in"), RM ? 0 : 60);
+  (o.labels || []).forEach(([t, v, txt]) => { mk(svg, "circle", { cx: x(t), cy: y(v), r: 4, fill: "var(--blue)", stroke: "var(--surface)", "stroke-width": 2 }); mk(svg, "text", { x: x(t) + 8, y: y(v) - 8, class: "ttl" }, txt); });
+  const xh = mk(svg, "line", { y1: T, y2: H - B, stroke: "var(--muted)", visibility: "hidden" }), dot = mk(svg, "circle", { r: 5, fill: "var(--blue)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" });
+  const hit = mk(svg, "rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
+  const tip = document.createElement("div"); tip.className = "tip"; el.appendChild(tip);
+  hit.addEventListener("mousemove", e => { const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * W, t = (sx - L) / (W - L - R) * X1; let best = valid[0];
+    if (o.step) { for (const p of valid) if (p[0] <= t) best = p; } else for (const p of valid) if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p;
+    const px = o.step ? Math.max(x(best[0]), Math.min(sx, W - R)) : x(best[0]);
+    xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.setAttribute("visibility", "visible"); dot.setAttribute("cx", px); dot.setAttribute("cy", y(best[1])); dot.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div class="t">t = ${fmtT(o.step ? Math.max(0, t) : best[0])}</div><b>${o.fmt(best[1])}</b>`; tip.style.display = "block";
+    tip.style.left = Math.min(px / W * r.width + 12, r.width - 130) + "px"; tip.style.top = Math.max(0, y(best[1]) / H * r.height - 48) + "px"; });
+  hit.addEventListener("mouseleave", () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+}
+function initPhase1() {
+  const users = []; for (let t = 0; t <= 850; t += 5) users.push([t, usersAt(t)]);
+  hoverChart($("#c1users"), users, { ymax: 35, yticks: [0,10,20,30], label: "Locust users over time", phaseLabels: true, fmt: v => `${Math.round(v)} users`, labels: [[200, 30, "peak: 30 users"]] });
+  hoverChart($("#c1cpu"), HPA.map(p => [p[0], p[1]]), { ymax: 140, yticks: [0,30,60,90,120], unit: "%", ref: 60, label: "Average CPU over time", fmt: v => `${v}% CPU`, labels: [[154, 132, "132% spike"]] });
+  hoverChart($("#c1rep"), HPA.map(p => [p[0], p[2]]), { ymax: 4, yticks: [0,1,2,3,4], step: true, h: 150, label: "Replica count over time", fmt: v => `${v} replica${v === 1 ? "" : "s"}`, labels: [[108,2,"+1"],[196,3,"+1 → 3"],[706,1,"back to 1"]] });
+  if (!inited.p1) { inited.p1 = true; $("#hpaTable tbody").innerHTML = HPA.map(([t, c, r]) => `<tr><td>${fmtT(t)}</td><td>${c == null ? "unknown" : c + "% / 60%"}</td><td>${r}</td></tr>`).join(""); }
+}
+
+/* =====================================================================  4 OUR TESTS  */
+function showSub(id) {
+  $$(".subpanel").forEach(p => p.hidden = p.id !== "s-" + id); $$(".sub").forEach(b => b.setAttribute("aria-selected", b.dataset.sub === id));
+  if (id !== "run") replay.pause();
+  if (id === "unit") $$("#s-unit [data-count]").forEach(countUp);
+  if (id === "run") { drawRunChart(); replay.render(); }
+}
+$$(".sub").forEach(b => b.addEventListener("click", () => showSub(b.dataset.sub)));
+function initTests() { if (!inited.tests) { inited.tests = true; initBug(); initCluster(); initRunTable(); initReplay(); } showSub($$(".sub").find(b => b.getAttribute("aria-selected") === "true")?.dataset.sub || "unit"); }
+
+// bug demo
+let bugTimers = [];
+function bugSet(show) { ["bugBefore","bugAfter"].forEach(id => $$("#" + id + " > *").forEach(n => n.classList.toggle("show", show))); }
+function initBug() {
+  bugSet(true);
+  $("#bugReset").addEventListener("click", () => { bugTimers.forEach(clearTimeout); bugTimers = []; bugSet(false); });
+  $("#bugRun").addEventListener("click", () => { bugTimers.forEach(clearTimeout); bugTimers = []; bugSet(false);
+    const nodes = [...$$("#bugBefore > *"), ...$$("#bugAfter > *")]; nodes.forEach((n, i) => bugTimers.push(setTimeout(() => n.classList.add("show"), RM ? 0 : 450 * i + (i >= 7 ? 500 : 0)))); });
+}
+// cluster checks
+function initCluster() {
+  $$("#checks li").forEach(l => l.classList.add("show"));
+  $("#clusterRun").addEventListener("click", () => { const items = $$("#checks li"); items.forEach(l => l.classList.remove("show")); items.forEach((l, i) => setTimeout(() => l.classList.add("show"), RM ? 0 : 500 * i)); });
+}
+// table
+function initRunTable() {
+  const t = $("#tickTable"); t.innerHTML = "<thead><tr><th class='n'>Tick</th><th class='n'>Time (s)</th><th class='n'>Req/s</th><th class='n'>CPU %</th><th class='n'>p95 (ms)</th><th class='n'>Pods ready</th><th>Decision</th></tr></thead>";
+  const b = document.createElement("tbody"); D_TICKS.forEach(r => { const tr = document.createElement("tr"); if (r[6].startsWith("SCALE_UP")) tr.className = "up";
+    [r[0], r[1], r[2].toFixed(1), r[3], r[4] == null ? "n/a" : r[4].toFixed(1), r[5], r[6]].forEach((c, i) => { const td = document.createElement("td"); td.textContent = c; if (i < 6) td.className = "n"; tr.appendChild(td); }); b.appendChild(tr); });
+  t.appendChild(b);
+}
+
+// 4-panel run chart with a replay cursor
+let runChartDrawn = false, cursorEl = null; const RC = { W: 720, L: 58, R: 14, PH: 100, GAP: 34, TOP: 22 };
+const RX = t => RC.L + t / 180 * (RC.W - RC.L - RC.R);
+function drawRunChart() {
+  if (runChartDrawn) return; runChartDrawn = true; const svg = $("#runChart");
+  const panels = [{ title: "Requests per second the controller sees (1-minute average)", max: 60, ticks: [0,20,40,60] }, { title: "Pods the controller asked for", max: 5, ticks: [0,1,2,3,4,5] },
+    { title: "CPU used, as % of what the pods asked for", max: 300, ticks: [0,100,200,300] }, { title: "p95 latency in ms (how slow the slowest 5% were)", max: 320, ticks: [0,100,200,300] }];
+  panels.forEach((p, i) => { p.top = RC.TOP + i * (RC.PH + RC.GAP); p.Y = v => p.top + RC.PH - v / p.max * RC.PH; }); const bottom = panels[3].top + RC.PH;
+  mk(svg, "rect", { class: "band", x: RX(72), y: panels[0].top, width: RX(126) - RX(72), height: bottom - panels[0].top });
+  panels.forEach(p => { mk(svg, "text", { class: "ttl", x: RC.L, y: p.top - 8 }, p.title); p.ticks.forEach(v => { mk(svg, "line", { class: "g", x1: RC.L, x2: RC.W - RC.R, y1: p.Y(v), y2: p.Y(v) }); mk(svg, "text", { class: "ax", x: RC.L - 6, y: p.Y(v) + 4, "text-anchor": "end" }, v); }); });
+  for (let t = 0; t <= 180; t += 30) mk(svg, "text", { class: "ax", x: RX(t), y: bottom + 16, "text-anchor": "middle" }, t + " s");
+  mk(svg, "text", { class: "ax", x: (RC.L + RC.W - RC.R) / 2, y: bottom + 32, "text-anchor": "middle" }, "seconds since the load started");
+  const [p1, p2, p3, p4] = panels;
+  mk(svg, "path", { class: "plan", d: pathOf(D_PLAN.map(([t, v]) => [RX(t), p1.Y(v)])) });
+  mk(svg, "path", { class: "l1", d: pathOf(D_T.map((t, i) => [RX(t), p1.Y(D_RPS[i])])) }); D_T.forEach((t, i) => mk(svg, "circle", { class: "d1", cx: RX(t), cy: p1.Y(D_RPS[i]), r: 3 }));
+  mk(svg, "path", { class: "l2", d: pathOf(D_PODS.map(([t, v]) => [RX(t), p2.Y(v)])) });
+  mk(svg, "line", { class: "ref", x1: RC.L, x2: RC.W - RC.R, y1: p3.Y(100), y2: p3.Y(100) }); mk(svg, "text", { class: "ax", x: RC.L + 6, y: p3.Y(100) - 4 }, "100% = exactly what a pod asked for");
+  mk(svg, "path", { class: "l3", d: pathOf(D_T.map((t, i) => [RX(t), p3.Y(D_CPU[i])])) }); D_T.forEach((t, i) => mk(svg, "circle", { class: "d3", cx: RX(t), cy: p3.Y(D_CPU[i]), r: 3 }));
+  mk(svg, "line", { class: "lim", x1: RC.L, x2: RC.W - RC.R, y1: p4.Y(300), y2: p4.Y(300) }); mk(svg, "text", { class: "limlbl", x: RC.W - RC.R - 4, y: p4.Y(300) + 14, "text-anchor": "end" }, "limit: 300 ms");
+  const lat = D_T.map((t, i) => [t, D_P95[i]]).filter(d => d[1] !== null); mk(svg, "path", { class: "l4", d: pathOf(lat.map(([t, v]) => [RX(t), p4.Y(v)])) }); lat.forEach(([t, v]) => mk(svg, "circle", { class: "d4", cx: RX(t), cy: p4.Y(v), r: 3 }));
+  mk(svg, "text", { class: "ax", x: RX(30), y: p4.Y(60) }, "worst: 25 ms");
+  D_DECISIONS.forEach(d => { mk(svg, "line", { class: "dec", x1: RX(d.t), x2: RX(d.t), y1: p1.top - 4, y2: bottom }); mk(svg, "text", { class: "declbl", x: RX(d.t) + 4, y: p2.top + 14 }, d.label); });
+  cursorEl = mk(svg, "line", { class: "cursor", x1: 0, x2: 0, y1: p1.top - 4, y2: bottom, visibility: "hidden" });
+}
+
+// replay
+const interp = (arr, t) => { if (t <= 0) return arr[0]; if (t >= 180) return arr[arr.length - 1]; const i = Math.floor(t / 15), a = arr[i], b = arr[i + 1]; if (a == null) return null; if (b == null) return a; return a + (b - a) * ((t - D_T[i]) / 15); };
+const desiredAt = t => { let v = 1; for (const [ts, p] of D_PODS) if (ts <= t) v = p; return v; };
+const readyAt = t => { if (t < 0) return 1; let v = 1; D_T.forEach((ts, i) => { if (ts <= t) v = D_READY[i]; }); return v; };
+const replay = { t: -62, playing: false, raf: 0, last: 0, shown: 0, firedPause: new Set(),
+  pause() { this.playing = false; cancelAnimationFrame(this.raf); const b = $("#rPlay"); if (b) b.textContent = "▶ Play"; },
+  play() { if (this.t >= 180) this.set(-62); this.playing = true; $("#rPlay").textContent = "❚❚ Pause"; this.last = performance.now(); const loop = now => { if (!this.playing) return;
+      const dt = (now - this.last) / 1000; this.last = now; const prev = this.t, speed = +$("#rSpeed").value; this.t = Math.min(180, this.t + dt * speed);
+      if ($("#rPause").checked) for (const k of D_DECISIONS.map(d => d.t)) if (prev < k && this.t >= k && !this.firedPause.has(k)) { this.firedPause.add(k); this.t = k; this.render(); this.pause(); return; }
+      this.render(); if (this.t >= 180) { this.pause(); return; } this.raf = requestAnimationFrame(loop); }; this.raf = requestAnimationFrame(loop); },
+  set(t) { this.t = t; if (t < 74) this.firedPause.clear(); else if (t < 164) this.firedPause.delete(164); this.render(); },
+  render() {
+    const t = this.t; $("#rClock").textContent = "t = " + (t >= 0 ? "+" : "−") + Math.abs(Math.round(t)) + " s"; $("#rSlider").value = t;
+    const rps = t <= 0 ? 0 : interp(D_RPS, t), cpu = interp(D_CPU, t), p95 = t < 0 ? null : interp(D_P95, t), des = desiredAt(t), rdy = Math.min(readyAt(t), des);
+    $("#mRps").textContent = fmt1(rps) + " req/s"; $("#bRps").style.width = Math.min(100, rps / 60 * 100) + "%";
+    $("#mCpu").textContent = Math.round(cpu) + "%"; $("#bCpu").style.width = Math.min(100, cpu / 300 * 100) + "%";
+    $("#mP95").textContent = p95 == null ? "n/a (no traffic yet)" : Math.round(p95) + " ms"; $("#bP95").style.width = p95 == null ? "0%" : Math.min(100, p95 / 320 * 100) + "%";
+    $("#rPodTxt").textContent = `${des} requested · ${rdy} ready`;
+    $$("#rPods .pod").forEach((p, i) => { const s = i < rdy ? "ready" : i < des ? "starting" : ""; if (p.dataset.s !== s) { p.dataset.s = s; p.className = "pod" + (s ? " " + s : ""); p.textContent = s === "ready" ? "pod" : s === "starting" ? "…" : ""; } });
+    const feed = $("#rFeed"), n = D_TICKS.filter(r => r[1] <= t).length; if (n !== this.shown) { const grew = n > this.shown; this.shown = n;
+      feed.innerHTML = D_TICKS.slice(0, n).map(r => { const up = r[6].startsWith("SCALE_UP");
+        return `<div class="fcard ${up ? "up" : r[1] < 0 ? "idle" : ""}"><div class="h"><span>tick ${r[0]} · ${r[1] >= 0 ? "+" : "−"}${Math.abs(r[1])} s</span><span>${up ? "▲ " : ""}${r[6]}</span></div>
+        <div class="s">CPU ${r[3]}% · ${r[2].toFixed(1)} req/s · p95 ${r[4] == null ? "n/a" : r[4].toFixed(0) + " ms"} · ${r[5]} pod${r[5] > 1 ? "s" : ""} ready</div><q>${r[7]}</q></div>`; }).join("");
+      if (grew) feed.scrollTop = feed.scrollHeight; }
+    const note = NOTES.find(([a, b]) => t >= a && t < b) || NOTES[NOTES.length - 1]; const bn = $("#rBanner"); if (bn.dataset.k !== String(note[0])) { bn.dataset.k = String(note[0]); bn.innerHTML = note[2]; bn.className = "banner " + note[3]; }
+    if (cursorEl) { if (t >= 0) { cursorEl.setAttribute("x1", RX(t)); cursorEl.setAttribute("x2", RX(t)); cursorEl.setAttribute("visibility", "visible"); } else cursorEl.setAttribute("visibility", "hidden"); }
+  } };
+function initReplay() {
+  $("#rPods").innerHTML = Array.from({ length: 10 }, () => `<div class="pod"></div>`).join("");
+  $("#rPlay").addEventListener("click", () => replay.playing ? replay.pause() : replay.play());
+  $("#rRestart").addEventListener("click", () => { replay.pause(); replay.shown = -1; replay.set(-62); });
+  $("#rSlider").addEventListener("input", e => { replay.pause(); replay.shown = -1; replay.set(+e.target.value); });
+  replay.shown = -1; replay.render();
+}
+
+/* =====================================================================  5 RESEARCH  */
+function initResearch() {
+  if (!inited.res) { inited.res = true;
+    $$("#fams .fam").forEach(c => c.addEventListener("click", () => c.classList.toggle("open")));
+    $("#bars").innerHTML = CTRL.map(([n, v, pods, ahead]) => `<div class="brow" title="${n}: ${v}% too slow, about ${pods} pods on average"><div class="name">${n}</div><div class="btrack"><div class="bar2${ahead ? " ahead" : ""}" data-w="${v / 55 * 100}"></div></div><div class="val">${v}%</div></div>`).join(""); }
+  $$("#bars .bar2").forEach(b => { b.style.width = "0"; setTimeout(() => b.style.width = b.dataset.w + "%", RM ? 0 : 80); });
+}
+
+/* =====================================================================  6 INSIGHTS  */
+function initInsights() {
+  if (inited.ins) return; inited.ins = true;
+  let runs = []; try { runs = JSON.parse(document.getElementById("meetingData").textContent).runs; } catch (e) { /* data not embedded */ }
+  const cols = ["gradual_ramp","step_up","sudden_spike","daily_wave","random_bursts"];
+  const rows = [["HPA (60% CPU)","hpa","ready"],["KEDA (request rate)","keda","ready"],["LLM baseline (cluster-v1)","llm","ready"],
+    ["LLM, no history (cluster-v1-nohist)","llm_nohist","ready"],["LLM + trend line (cluster-v2-trend)","llm_trend","ready"],["LLM + words (cluster-v2-words)","llm_words","ready"],
+    ["Look-ahead baseline (no LLM)",null,"need"],["Scheduled baseline (control)",null,"need"],["LLM + operator context",null,"need"],["LLM manages HPA's settings",null,"need"]];
+  const cell = (folder, kind, c) => { const n = folder ? runs.filter(r => r.controller === folder && r.scenario === c).length : 0;
+    return n ? `<span class="chip smoke">${n} run${n > 1 ? "s" : ""}</span>` : kind === "ready" ? `<span class="chip ready">plugin ready</span>` : `<span class="chip need">to build</span>`; };
+  $("#matrix").innerHTML = `<thead><tr><th>Controller</th>${cols.map(c => `<th><span class="mono">${c}</span></th>`).join("")}</tr></thead><tbody>${rows.map(([n, f, k]) => `<tr><td>${n}</td>${cols.map(c => `<td>${cell(f, k, c)}</td>`).join("")}</tr>`).join("")}</tbody>`
+    + `<caption class="small muted" style="caption-side:bottom;text-align:left;padding-top:8px">Orange = runs we have done (one repeat each, so smoke runs and not results). "plugin ready" means the controller exists in <span class="mono">controllers/</span> but we have not run it on that scenario. A scheduled baseline exists only in the simulator today.</caption>`;
+}
+
+/* =====================================================================  7 PROMPTING / MEETING  */
+// Data is embedded by build_meeting_data.py from the real prompt-lab and cluster results.
+const VINFO = {
+  "cluster-v1": { plugin: "llm", change: "None. This is the baseline.", why: "Every other variant is compared with this one.", source: "Our first prompt" },
+  "cluster-v1-nohist": { plugin: "llm_nohist", change: "The model sees no table of past decisions.", why: "SAIR reports that removing the history made results about 17% worse in their setup. Do we see the same?", source: "SAIR (ablation)" },
+  "cluster-v1-hist10": { plugin: "(none yet)", change: "The model sees the last 10 past decisions instead of 5.", why: "SAIR's diary is longer than ours. Does a longer window let the model see the shape of the load?", source: "SAIR (diary length)" },
+  "cluster-v1-hist15": { plugin: "(none yet)", change: "The model sees the last 15 past decisions instead of 5, the length the SAIR summary describes.", why: "Same question, at the paper's length.", source: "SAIR (diary length)" },
+  "cluster-v2-outcomes": { plugin: "(none yet)", change: "Adds a last column to the history table showing what happened by the next reading (pods ready, CPU, p95) after each past decision, plus one system-prompt sentence.", why: "SAIR's diary records outcomes, not just actions. Does seeing what each decision led to help?", source: "SAIR (outcomes)" },
+  "cluster-v2-trend": { plugin: "llm_trend", change: "Adds one line comparing the first and latest value over the last 4 readings (rising, falling or flat) for request rate, CPU and p95, plus one sentence in the system prompt saying the averages lag.", why: "At the live mistake the model read old table rows as current. An explicit direction should stop that.", source: "Our own observation (tick 15)" },
+  "cluster-v2-words": { plugin: "llm_words", change: "Adds a word in brackets next to CPU, latency and errors, such as 88% (moderate). The thresholds are first guesses for the team to review.", why: "ORACL turns metrics into words. Does a rough label help the model read levels?", source: "ORACL" }
+};
+let M = null, mVar = "cluster-v2-trend", mLab = null, mScenario = null; const mHidden = new Set();
+const CMP_COLORS = { hpa: "var(--green)", llm: "var(--blue)", llm_trend: "var(--purple)", llm_nohist: "var(--teal)", llm_words: "var(--orange)", keda: "var(--red)" };
+
+function initMeeting() {
+  if (!M) {
+    M = JSON.parse(document.getElementById("meetingData").textContent);
+    buildTiles(); buildVariants(); buildLab(); buildHeld(); buildCluster();
+  }
+  requestAnimationFrame(() => requestAnimationFrame(growBars));
+}
+
+function pills(el, items, current, onPick) {
+  el.innerHTML = ""; items.forEach(([id, text]) => { const b = document.createElement("button"); b.className = "vpill"; b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", id === current); b.textContent = text; b.addEventListener("click", () => onPick(id)); el.appendChild(b); });
+}
+
+/* ---- summary tiles (computed from the embedded data) ---- */
+function buildTiles() {
+  const sudden = M.runs.filter(r => r.scenario === "sudden_spike"), hpa = sudden.find(r => r.controller === "hpa"), llm = sudden.find(r => r.controller === "llm");
+  const sla = M.runs.reduce((a, r) => a + r.sla_violation_ticks, 0), calls = M.lab.calls + M.held_out.calls;
+  const tiles = [[M.variants.length, "prompt variants tested, one change each", ""], [calls.toLocaleString(), "model calls in the prompt lab", "blue"],
+    [M.runs.length, "closed-loop cluster runs, all scored", ""], [sla, "SLA violations in any run: latency was never threatened", "warn"]];
+  if (hpa && llm) tiles.push([`${hpa.pod_minutes.toFixed(1)} vs ${llm.pod_minutes.toFixed(1)}`, "pod-minutes, HPA vs LLM on sudden_spike (one run; HPA is probably too conservative)", "warn"]);
+  $("#mTiles").innerHTML = tiles.map(([n, t, cls]) => `<div class="card tile ${cls}"><b>${n}</b><span>${t}</span></div>`).join("");
+}
+
+/* ---- 4 · held-out lab ---- */
+function buildHeld() {
+  const h = M.held_out, names = M.variants.map(v => v.name), maxPods = Math.max(...names.map(n => h.mix[n].pods_asked));
+  $("#hIntro").textContent = `${h.cases} situations from the sudden_spike run, none of which any prompt was designed on, each asked ${h.repeats} times per prompt (${h.calls} answers in all). `
+    + `There are no "sensible" labels yet, so this shows how each prompt behaves, not how often it is right. The live baseline run scaled up at ticks ${h.live_up_ticks.join(" and ")}.`;
+  const head = ["Prompt", "Hold", "Scale-up answers", "Pods asked for", "Scale-down answers", "Invalid", "First scale-up (tick)"];
+  $("#hTable").innerHTML = `<thead><tr>${head.map((x, i) => `<th class="${i ? "n" : ""}">${x}</th>`).join("")}</tr></thead><tbody>` + names.map(n => { const m = h.mix[n], f = h.first_up[n];
+    return `<tr><td><b>${n}</b></td><td class="n">${m.hold}</td><td class="n">${m.up}</td><td class="n ${m.pods_asked === maxPods ? "hot" : ""}">${m.pods_asked}</td><td class="n">${m.down}</td><td class="n ${m.invalid ? "hot" : ""}">${m.invalid}</td><td class="n">${f == null ? "never" : f}</td></tr>`; }).join("") + "</tbody>";
+  $("#hDiffs").innerHTML = `<thead><tr><th class="n">Tick</th><th>Situation</th><th>Baseline says</th><th>Prompts that differ</th></tr></thead><tbody>` + h.diffs.map(d =>
+    `<tr><td class="n">${d.tick}</td><td>${d.pods} pod${d.pods > 1 ? "s" : ""}, CPU ${d.cpu}%, ${d.rps} req/s, p95 ${d.p95} ms</td><td>${d.baseline}</td><td>${Object.entries(d.others).map(([v, m]) => `<span class="pill2">${v.replace("cluster-", "")}: ${m}</span>`).join(" ")}</td></tr>`).join("") + "</tbody>";
+}
+
+/* ---- 2 · variants ---- */
+function buildVariants() { showVariant(mVar); }
+function showVariant(name) {
+  mVar = name; pills($("#vPills"), M.variants.map(v => [v.name, v.name]), name, showVariant);
+  const info = VINFO[name], base = M.prompts_t15["cluster-v1"].split("\n"), now = M.prompts_t15[name].split("\n");
+  const noteKey = name === "cluster-v2-trend" ? "trend" : name === "cluster-v2-words" ? "words" : name === "cluster-v2-outcomes" ? "outcomes" : null;
+  $("#vInfo").innerHTML = `<h3 style="margin-top:0">${name}</h3><p>${M.variants.find(v => v.name === name).description}</p>
+    <table class="kv"><tr><td>Run it as</td><td><span class="mono">--controller ${info.plugin}</span></td></tr>
+    <tr><td>What changes</td><td>${info.change}</td></tr><tr><td>Why try it</td><td>${info.why}</td></tr><tr><td>Idea from</td><td>${info.source}</td></tr></table>`
+    + (noteKey ? `<div class="callout" style="margin-bottom:0"><p class="small"><b>Added to the system prompt:</b><br><i>${M.notes[noteKey]}</i></p></div>` : "");
+  const pre = $("#vPrompt"); pre.innerHTML = "";
+  now.forEach((line, i) => { if (name !== "cluster-v1" && !base.includes(line)) { const m = document.createElement("mark"); m.textContent = line; pre.appendChild(m); } else pre.appendChild(document.createTextNode(line)); pre.appendChild(document.createTextNode(i < now.length - 1 ? "\n" : "")); });
+  const removed = base.filter(l => !now.includes(l) && l.trim()).length;
+  $("#vRemoved").textContent = name === "cluster-v1-nohist" ? `Removed: the recent-decisions table (${removed} lines).` : "";
+}
+
+/* ---- 3 · lab ---- */
+function labClass(label) { return label === "NO_CHANGE" ? "hold" : label.startsWith("SCALE_UP") ? "up" : label.startsWith("SCALE_DOWN") ? "down" : "bad"; }
+function buildLab() { mLab = M.lab.cases[M.lab.cases.length - 1].id; showLab(mLab); }
+function showLab(id) {
+  mLab = id; const lab = M.lab, c = lab.cases.find(x => x.id === id);
+  pills($("#lPills"), lab.cases.map(x => [x.id, `tick ${x.tick}: ${x.title.split(":")[0]}`]), id, showLab);
+  const live = c.live_answer;
+  $("#lCase").innerHTML = `<b>${c.title}</b><p class="muted small" style="margin:4px 0 0">${c.expect ? `Sensible answers: <b>${c.expect.join(" or ")}</b>. ` : ""}${c.note || ""}</p>
+    <p class="small" style="margin:6px 0 0">What the live controller did here: <b>${live.action}${live.action === "NO_CHANGE" ? "" : " +" + live.amount}</b>${live.applied ? " (applied)" : ""}.</p>`;
+  const box = $("#lBars"); box.innerHTML = "";
+  M.variants.forEach(v => {
+    const d = c.variants[v.name], row = document.createElement("div"); row.className = "lrow";
+    const good = c.expect ? Object.entries(d.counts).filter(([k]) => c.expect.includes(k)).reduce((a, [, n]) => a + n, 0) : null;
+    const segs = Object.entries(d.counts).sort((a, b) => (b[0] === "NO_CHANGE") - (a[0] === "NO_CHANGE") || b[1] - a[1]).map(([k, n]) => `<div class="seg ${labClass(k)}" data-w="${n / d.n * 100}" title="${k}: ${n} of ${d.n}">${n > 0 ? k.replace("SCALE_", "") + " ×" + n : ""}</div>`).join("");
+    row.innerHTML = `<div class="top"><div class="nm">${v.name}</div><div class="stack">${segs}</div><div class="ok ${good === null ? "na" : good === d.n ? "good" : good <= d.n / 2 ? "bad" : "na"}">${good === null ? "no expectation" : "sensible " + good + "/" + d.n}</div></div>
+      <div class="why">${d.reasons.slice(0, 3).map(r => `<div><span class="pill2 ${labClass(r.answer) === "up" ? "up" : ""}">${r.answer}</span>"${r.reason}"</div>`).join("")}<div class="small">Showing 3 of ${d.n} answers. All are saved in <span class="mono">experiments/results/prompt_lab/</span>.</div></div>`;
+    row.addEventListener("click", () => row.classList.toggle("open"));
+    if (["cluster-v1", "cluster-v2-trend"].includes(v.name) && c.tick === 15) row.classList.add("open");
+    box.appendChild(row);
+  });
+  // agreement tiles over every case with an expectation
+  const tot = {}; lab.cases.filter(x => x.expect).forEach(x => M.variants.forEach(v => { const d = x.variants[v.name]; const g = Object.entries(d.counts).filter(([k]) => x.expect.includes(k)).reduce((a, [, n]) => a + n, 0); const t = tot[v.name] || (tot[v.name] = [0, 0]); t[0] += g; t[1] += d.n; }));
+  $("#lTotals").innerHTML = M.variants.map(v => { const [g, n] = tot[v.name]; return `<div class="card tile"><b style="color:${g === n ? "var(--green)" : g / n < 0.7 ? "var(--red)" : "var(--orange)"}">${g}/${n}</b><span>${v.name}</span></div>`; }).join("");
+  $("#lTotalsNote").textContent = `Agreement with the sensible answers, over the situations that have one (idle and the mistake; the rise has none). ${lab.calls} calls to ${lab.model}, ${lab.failed} failed. The "sensible" answers are our own judgement, written in the cases file.`;
+  growBars();
+}
+function growBars() { $$("#lBars .seg").forEach(s => { s.style.width = RM ? s.dataset.w + "%" : "0"; if (!RM) setTimeout(() => s.style.width = s.dataset.w + "%", 40); }); }
+
+/* ---- 4 · cluster runs ---- */
+function buildCluster() {
+  const scenarios = [...new Set(M.runs.map(r => r.scenario))];
+  mScenario = scenarios.includes("sudden_spike") ? "sudden_spike" : scenarios[0]; showScenario(mScenario);
+}
+function runLabel(r) { return `${r.controller}${r.repeat > 1 ? " #" + r.repeat : ""}`; }
+function showScenario(s) {
+  mScenario = s; const scenarios = [...new Set(M.runs.map(r => r.scenario))];
+  pills($("#cPills"), scenarios.map(x => [x, x]), s, x => { mHidden.clear(); showScenario(x); });
+  const runs = M.runs.filter(r => r.scenario === s);
+  $("#cLegend").innerHTML = runs.map(r => `<span class="runchip ${mHidden.has(runLabel(r)) ? "off" : ""}" data-k="${runLabel(r)}"><i style="background:${CMP_COLORS[r.controller] || "var(--muted)"}"></i>${runLabel(r)}${r.prompt_version ? " · " + r.prompt_version : ""}</span>`).join("");
+  $$("#cLegend .runchip").forEach(c => c.addEventListener("click", () => { const k = c.dataset.k; mHidden.has(k) ? mHidden.delete(k) : mHidden.add(k); showScenario(s); }));
+  drawCompare(runs.filter(r => !mHidden.has(runLabel(r))), runs);
+  const head = ["Controller", "Prompt", "SLA-violation ticks", "Pod-minutes", "Peak p95 (ms)", "Peak pods", "Scale events", "Flaps", "Model calls failed / invalid"];
+  $("#cTable").innerHTML = `<thead><tr>${head.map((h, i) => `<th class="${i > 1 ? "n" : ""}">${h}</th>`).join("")}</tr></thead><tbody>` + runs.map(r => `<tr><td><b>${runLabel(r)}</b></td><td>${r.prompt_version || "-"}</td>
+    <td class="n">${r.sla_violation_ticks}</td><td class="n">${r.pod_minutes.toFixed(1)}</td><td class="n">${Math.round(r.p95_max_ms)}</td><td class="n">${r.peak_pods}</td><td class="n">${r.scale_events}</td><td class="n">${r.flaps}</td>
+    <td class="n">${r.decisions == null ? "-" : (r.suspect ? `<span class="warnchip">⚠ </span>` : "") + r.model_calls_failed + " / " + r.invalid_answers}</td></tr>`).join("") + "</tbody>";
+}
+function drawCompare(shown, all) {
+  const svg = $("#cmpChart"); svg.innerHTML = ""; if (!all.length) return;
+  const W = 720, L = 58, R = 14, PH = 100, GAP = 34, TOP = 22, xmax = Math.ceil(Math.max(...all.map(r => r.series[r.series.length - 1][0])) / 30) * 30;
+  const X = t => L + t / xmax * (W - L - R);
+  const maxRps = Math.max(10, ...all.flatMap(r => r.series.map(s => s[4] || 0))), maxPods = Math.max(4, ...all.map(r => r.peak_pods)) + 1, maxP95 = Math.max(350, ...all.flatMap(r => r.series.map(s => s[3] || 0)));
+  const nice = v => { const e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * e; };
+  const panels = [{ title: "Requests per second seen (1-minute average, first run)", max: nice(maxRps) }, { title: "Pods the controller asked for", max: maxPods }, { title: "p95 latency in ms", max: nice(maxP95) }];
+  panels.forEach((p, i) => { p.top = TOP + i * (PH + GAP); p.Y = v => p.top + PH - Math.min(v, p.max) / p.max * PH; p.ticks = i === 1 ? Array.from({ length: p.max + 1 }, (_, k) => k).filter(k => k % Math.ceil(p.max / 5) === 0) : [0, p.max / 2, p.max]; });
+  const bottom = panels[2].top + PH;
+  panels.forEach(p => { mk(svg, "text", { class: "ttl", x: L, y: p.top - 8 }, p.title); p.ticks.forEach(v => { mk(svg, "line", { class: "g", x1: L, x2: W - R, y1: p.Y(v), y2: p.Y(v) }); mk(svg, "text", { class: "ax", x: L - 6, y: p.Y(v) + 4, "text-anchor": "end" }, Math.round(v)); }); });
+  for (let t = 0; t <= xmax; t += 30) mk(svg, "text", { class: "ax", x: X(t), y: bottom + 16, "text-anchor": "middle" }, t + " s");
+  mk(svg, "text", { class: "ax", x: (L + W - R) / 2, y: bottom + 32, "text-anchor": "middle" }, "seconds since the load started");
+  const first = all[0].series; mk(svg, "path", { d: pathOf(first.map(s => [X(s[0]), panels[0].Y(s[4] || 0)])), fill: "none", stroke: "var(--muted)", "stroke-width": 2 });
+  const lim = panels[2]; mk(svg, "line", { class: "lim", x1: L, x2: W - R, y1: lim.Y(300), y2: lim.Y(300) }); mk(svg, "text", { class: "limlbl", x: W - R - 4, y: lim.Y(300) - 5, "text-anchor": "end" }, "limit: 300 ms");
+  shown.forEach(r => {
+    const col = CMP_COLORS[r.controller] || "var(--muted)", s = r.series; let d = "";
+    s.forEach((p, i) => { d += i === 0 ? `M${X(p[0])},${panels[1].Y(p[1])}` : `H${X(p[0])}V${panels[1].Y(p[1])}`; });
+    mk(svg, "path", { d: d + `H${X(xmax)}`, fill: "none", stroke: col, "stroke-width": 2.4, "stroke-linejoin": "round", opacity: .9 });
+    const lat = s.filter(p => p[3] != null); mk(svg, "path", { d: pathOf(lat.map(p => [X(p[0]), panels[2].Y(p[3])])), fill: "none", stroke: col, "stroke-width": 2.2 });
+  });
+}
+
+/* =====================================================================  START  */
+showTab(location.hash.slice(1) || "overview", false);
+</script>
+</body>
+</html>

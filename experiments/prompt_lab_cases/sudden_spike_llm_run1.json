@@ -1,0 +1,2476 @@
+[
+ {
+  "id": "sudden_spike_llm_run1:t0",
+  "tick": 0,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 10.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 3.6470299950600733,
+   "request_rate_rps": 0.7777777777777777,
+   "latency_p50_ms": 6.411290322580645,
+   "latency_p95_ms": 9.374999999999998,
+   "error_rate": 0.0
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [],
+  "recorded_answer": {
+   "action": "SCALE_DOWN",
+   "amount": 3,
+   "reason": "Service is vastly overprovisioned with 10 replicas handling minimal load at 4% CPU and excellent latency; safely reduce to conserve resources.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t1",
+  "tick": 1,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 16.01657915553078,
+   "request_rate_rps": 0.0,
+   "latency_p50_ms": null,
+   "latency_p95_ms": null,
+   "error_rate": null
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service has minimal traffic and low CPU usage; one replica is sufficient and at minimum allowed.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t2",
+  "tick": 2,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 6.71491100563385,
+   "request_rate_rps": 0.0,
+   "latency_p50_ms": null,
+   "latency_p95_ms": null,
+   "error_rate": null
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is idle with minimal traffic (0 req/s) and low CPU usage (7%), maintaining minimum replica requirement.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t3",
+  "tick": 3,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 2.7043828031134725,
+   "request_rate_rps": 0.0,
+   "latency_p50_ms": null,
+   "latency_p95_ms": null,
+   "error_rate": null
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is at minimum replicas with minimal traffic and low CPU usage; no action needed.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t4",
+  "tick": 4,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 2.7276994240624184,
+   "request_rate_rps": 0.0,
+   "latency_p50_ms": null,
+   "latency_p95_ms": null,
+   "error_rate": null
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is idle with minimal CPU usage and no requests; maintain minimum replica count at 1.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t5",
+  "tick": 5,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 2.714510821708328,
+   "request_rate_rps": 3.4666666666666663,
+   "latency_p50_ms": 6.949999999999999,
+   "latency_p95_ms": 80.5,
+   "error_rate": 0.0
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is healthy with low latency (p95 80ms), no errors, and adequate CPU headroom at 3% utilization.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t6",
+  "tick": 6,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 52.08151132705255,
+   "request_rate_rps": 9.644444444444444,
+   "latency_p50_ms": 6.83277027027027,
+   "latency_p95_ms": 14.923913043478256,
+   "error_rate": 0.0
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is performing well with low latency (p95 15ms), zero errors, and reasonable CPU utilization (52%) on a single pod.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t7",
+  "tick": 7,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 1.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 94.91973376731775,
+   "request_rate_rps": 15.799999999999999,
+   "latency_p50_ms": 6.843879668049793,
+   "latency_p95_ms": 14.50328947368421,
+   "error_rate": 0.0
+  },
+  "current_replicas": 1,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "SCALE_UP",
+   "amount": 1,
+   "reason": "CPU at 95% with 15.8 req/s indicates approaching saturation; proactive scaling needed to maintain latency below limit.",
+   "applied": true
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t8",
+  "tick": 8,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 2.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 71.70409191474451,
+   "request_rate_rps": 17.53333333333333,
+   "latency_p50_ms": 6.76747311827957,
+   "latency_p95_ms": 13.659374999999992,
+   "error_rate": 0.0
+  },
+  "current_replicas": 2,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Latency is well below limit at 14ms p95, CPU at 72% is healthy, and the second pod from last scaling is now ready and handling traffic effectively.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t9",
+  "tick": 9,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 2.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 78.91189923101565,
+   "request_rate_rps": 13.999999999999998,
+   "latency_p50_ms": 6.726973684210526,
+   "latency_p95_ms": 13.177966101694908,
+   "error_rate": 0.0
+  },
+  "current_replicas": 2,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Latency is well below 300ms limit, error rate is zero, and CPU at 79% is acceptable with current 2 ready replicas handling 14 req/s smoothly.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t10",
+  "tick": 10,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 2.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 95.76966813459094,
+   "request_rate_rps": 24.171515555555555,
+   "latency_p50_ms": 6.777962499856157,
+   "latency_p95_ms": 16.477392105263178,
+   "error_rate": 0.0
+  },
+  "current_replicas": 2,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "CPU at 96% is high but latency remains very low (p95 16ms) and error rate is zero; wait for metrics to stabilize before scaling further.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t11",
+  "tick": 11,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 2.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 151.39464370925612,
+   "request_rate_rps": 43.88520444444444,
+   "latency_p50_ms": 6.85841449310844,
+   "latency_p95_ms": 25.3359520098645,
+   "error_rate": 0.0
+  },
+  "current_replicas": 2,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "SCALE_UP",
+   "amount": 1,
+   "reason": "CPU at 151% indicates saturation; latency still comfortable but trending upward with high request rate.",
+   "applied": true
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t12",
+  "tick": 12,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 2.0,
+   "replicas_starting": 1.0,
+   "cpu_utilization_pct": 186.33868546249892,
+   "request_rate_rps": 63.33333333333333,
+   "latency_p50_ms": 6.872044140830267,
+   "latency_p95_ms": 24.340659340659325,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "One pod is still starting from the recent scale-up; wait for it to be ready before assessing further scaling needs.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t13",
+  "tick": 13,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 184.3489892457404,
+   "request_rate_rps": 68.84444444444443,
+   "latency_p50_ms": 6.850215002388915,
+   "latency_p95_ms": 22.866666666666646,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Latency is well below limit at 23ms, CPU is high but pod is still starting, wait for it to become ready.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t14",
+  "tick": 14,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 188.73104300416605,
+   "request_rate_rps": 69.24836111111111,
+   "latency_p50_ms": 6.801550569774628,
+   "latency_p95_ms": 18.156067327091208,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is healthy with 3 ready pods, low latency (p95 18ms), zero errors, and CPU at 189% is sustainable with current load; latency trend is flat and well below the 300ms limit.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t15",
+  "tick": 15,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 135.18789153424,
+   "request_rate_rps": 48.21883333333333,
+   "latency_p50_ms": 6.746706180956989,
+   "latency_p95_ms": 15.477213572476453,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 10.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 3.6470299950600733,
+    "request_rate_rps": 0.7777777777777777,
+    "latency_p95_ms": 9.374999999999998,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "SCALE_DOWN 3 (blocked by guardrails, nothing changed)"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 188.73104300416605,
+    "request_rate_rps": 69.24836111111111,
+    "latency_p95_ms": 18.156067327091208,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Latency is well below limit at 15ms p95, CPU has normalized to 135% after scaling up, error rate is zero, and request rate is stable.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t16",
+  "tick": 16,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 75.88593605699408,
+   "request_rate_rps": 32.93333333333333,
+   "latency_p50_ms": 6.723255813953488,
+   "latency_p95_ms": 14.439086294416246,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 16.01657915553078,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 188.73104300416605,
+    "request_rate_rps": 69.24836111111111,
+    "latency_p95_ms": 18.156067327091208,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 135.18789153424,
+    "request_rate_rps": 48.21883333333333,
+    "latency_p95_ms": 15.477213572476453,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Latency and error rate are healthy; CPU at 76% with request rate dropping; scaling up recently is stabilizing the system.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t17",
+  "tick": 17,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 49.78005893107409,
+   "request_rate_rps": 18.911111111111108,
+   "latency_p50_ms": 6.641589506172839,
+   "latency_p95_ms": 11.570652173913029,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 6.71491100563385,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 188.73104300416605,
+    "request_rate_rps": 69.24836111111111,
+    "latency_p95_ms": 18.156067327091208,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 135.18789153424,
+    "request_rate_rps": 48.21883333333333,
+    "latency_p95_ms": 15.477213572476453,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 75.88593605699408,
+    "request_rate_rps": 32.93333333333333,
+    "latency_p95_ms": 14.439086294416246,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Latency is well below 300ms limit, error rate is zero, and CPU has dropped to 50% indicating the recent load spike has subsided.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t18",
+  "tick": 18,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 38.83897884078752,
+   "request_rate_rps": 18.444444444444443,
+   "latency_p50_ms": 6.626175548589341,
+   "latency_p95_ms": 11.56976744186045,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7043828031134725,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 188.73104300416605,
+    "request_rate_rps": 69.24836111111111,
+    "latency_p95_ms": 18.156067327091208,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 135.18789153424,
+    "request_rate_rps": 48.21883333333333,
+    "latency_p95_ms": 15.477213572476453,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 75.88593605699408,
+    "request_rate_rps": 32.93333333333333,
+    "latency_p95_ms": 14.439086294416246,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 49.78005893107409,
+    "request_rate_rps": 18.911111111111108,
+    "latency_p95_ms": 11.570652173913029,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is performing well with low latency (p95 12ms), zero errors, and CPU at a healthy 39% with 3 replicas handling 18.4 req/s efficiently.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t19",
+  "tick": 19,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 51.43389201677068,
+   "request_rate_rps": 18.466666666666665,
+   "latency_p50_ms": 6.65406050955414,
+   "latency_p95_ms": 12.546874999999991,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.7276994240624184,
+    "request_rate_rps": 0.0,
+    "latency_p95_ms": null,
+    "error_rate": null,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 188.73104300416605,
+    "request_rate_rps": 69.24836111111111,
+    "latency_p95_ms": 18.156067327091208,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 135.18789153424,
+    "request_rate_rps": 48.21883333333333,
+    "latency_p95_ms": 15.477213572476453,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 75.88593605699408,
+    "request_rate_rps": 32.93333333333333,
+    "latency_p95_ms": 14.439086294416246,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 49.78005893107409,
+    "request_rate_rps": 18.911111111111108,
+    "latency_p95_ms": 11.570652173913029,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 38.83897884078752,
+    "request_rate_rps": 18.444444444444443,
+    "latency_p95_ms": 11.56976744186045,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   }
+  ],
+  "recorded_answer": {
+   "action": "SCALE_DOWN",
+   "amount": 1,
+   "reason": "CPU and latency are very low with 3 replicas; reducing to 2 will save costs while maintaining safe margins.",
+   "applied": false
+  }
+ },
+ {
+  "id": "sudden_spike_llm_run1:t20",
+  "tick": 20,
+  "source": "sudden_spike_llm_run1",
+  "snapshot": {
+   "replicas_ready": 3.0,
+   "replicas_starting": 0.0,
+   "cpu_utilization_pct": 48.564190824157464,
+   "request_rate_rps": 18.799999999999997,
+   "latency_p50_ms": 6.742174629324547,
+   "latency_p95_ms": 13.030612244897945,
+   "error_rate": 0.0
+  },
+  "current_replicas": 3,
+  "min_replicas": 1,
+  "max_replicas": 10,
+  "history": [
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 2.714510821708328,
+    "request_rate_rps": 3.4666666666666663,
+    "latency_p95_ms": 80.5,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 52.08151132705255,
+    "request_rate_rps": 9.644444444444444,
+    "latency_p95_ms": 14.923913043478256,
+    "error_rate": 0.0,
+    "replicas_requested": 1,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 1.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 94.91973376731775,
+    "request_rate_rps": 15.799999999999999,
+    "latency_p95_ms": 14.50328947368421,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 71.70409191474451,
+    "request_rate_rps": 17.53333333333333,
+    "latency_p95_ms": 13.659374999999992,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 78.91189923101565,
+    "request_rate_rps": 13.999999999999998,
+    "latency_p95_ms": 13.177966101694908,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 95.76966813459094,
+    "request_rate_rps": 24.171515555555555,
+    "latency_p95_ms": 16.477392105263178,
+    "error_rate": 0.0,
+    "replicas_requested": 2,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 151.39464370925612,
+    "request_rate_rps": 43.88520444444444,
+    "latency_p95_ms": 25.3359520098645,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_UP 1"
+   },
+   {
+    "replicas_ready": 2.0,
+    "replicas_starting": 1.0,
+    "cpu_utilization_pct": 186.33868546249892,
+    "request_rate_rps": 63.33333333333333,
+    "latency_p95_ms": 24.340659340659325,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 184.3489892457404,
+    "request_rate_rps": 68.84444444444443,
+    "latency_p95_ms": 22.866666666666646,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 188.73104300416605,
+    "request_rate_rps": 69.24836111111111,
+    "latency_p95_ms": 18.156067327091208,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 135.18789153424,
+    "request_rate_rps": 48.21883333333333,
+    "latency_p95_ms": 15.477213572476453,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 75.88593605699408,
+    "request_rate_rps": 32.93333333333333,
+    "latency_p95_ms": 14.439086294416246,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 49.78005893107409,
+    "request_rate_rps": 18.911111111111108,
+    "latency_p95_ms": 11.570652173913029,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 38.83897884078752,
+    "request_rate_rps": 18.444444444444443,
+    "latency_p95_ms": 11.56976744186045,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "NO_CHANGE"
+   },
+   {
+    "replicas_ready": 3.0,
+    "replicas_starting": 0.0,
+    "cpu_utilization_pct": 51.43389201677068,
+    "request_rate_rps": 18.466666666666665,
+    "latency_p95_ms": 12.546874999999991,
+    "error_rate": 0.0,
+    "replicas_requested": 3,
+    "action": "SCALE_DOWN 1 (blocked by guardrails, nothing changed)"
+   }
+  ],
+  "recorded_answer": {
+   "action": "NO_CHANGE",
+   "amount": 0,
+   "reason": "Service is healthy with low latency (p95 13ms), zero errors, and reasonable CPU (49%), well below saturation point.",
+   "applied": false
+  }
+ }
+]

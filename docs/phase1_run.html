@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCALE LLM Track Update</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-0: #f4f3f0;
+    --surface-1: #fcfcfb;
+    --border: #e2e1dc;
+    --grid: #ebeae6;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7974;
+    --series-1: #2a78d6;
+    --series-1-fill: rgba(42, 120, 214, 0.12);
+    --ref: #7a7974;
+    --band: rgba(0, 0, 0, 0.035);
+    --good: #008300;
+    --muted-bar: #b9b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --border: #33332f;
+      --grid: #2a2a27;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8f8e86;
+      --series-1: #3987e5;
+      --series-1-fill: rgba(57, 135, 229, 0.18);
+      --ref: #8f8e86;
+      --band: rgba(255, 255, 255, 0.04);
+      --good: #3fae3f;
+      --muted-bar: #5c5b56;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .viz-root {
+    background: var(--surface-0); color: var(--text-primary);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    min-height: 100vh; padding: 40px 24px 64px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 12px; }
+  .sub { color: var(--text-secondary); margin: 0 0 28px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+    color: var(--good); border: 1px solid currentColor; border-radius: 999px; padding: 2px 10px; margin-bottom: 14px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .tile .num { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; }
+  .tile .lbl { color: var(--text-secondary); font-size: 13px; }
+
+  /* pipeline diagram */
+  .flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+  .node { flex: 1 1 150px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .node b { display: block; font-size: 14px; }
+  .node span { color: var(--text-secondary); font-size: 13px; }
+  .arrow { align-self: center; color: var(--text-muted); padding: 0 8px; font-size: 18px; }
+  .cluster { border: 1.5px dashed var(--border); border-radius: 14px; padding: 14px; margin-top: 8px; }
+  .cluster-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+
+  .chart-card { margin-bottom: 14px; position: relative; }
+  .chart-title { font-weight: 600; font-size: 15px; }
+  .chart-note { color: var(--text-secondary); font-size: 13px; margin-bottom: 8px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis text { fill: var(--text-muted); font-size: 11px; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.12); display: none; white-space: nowrap; }
+  .tip .t { color: var(--text-muted); font-size: 12px; }
+
+  .story { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .step .n { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+  .step p { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
+  .traps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .trap b { display: block; margin-bottom: 4px; }
+  .trap p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+  .ok { color: var(--good); font-weight: 600; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--text-secondary); font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 4px 10px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--text-muted); font-weight: 600; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--grid); padding: 1px 5px; border-radius: 4px; }
+  footer { margin-top: 40px; color: var(--text-muted); font-size: 13px; }
+
+  /* nav + part headers */
+  .topnav { position: sticky; top: 0; z-index: 5; background: var(--surface-0); padding: 10px 0; margin: -10px 0 24px;
+    display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .topnav a { color: var(--text-secondary); text-decoration: none; font-size: 14px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1); }
+  .topnav a:hover { color: var(--text-primary); }
+  .part { scroll-margin-top: 70px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--series-1); margin-bottom: 6px; }
+  .divider { border: 0; border-top: 1px solid var(--border); margin: 64px 0 40px; }
+
+  /* research section */
+  .big-q { font-size: 20px; line-height: 1.4; font-weight: 600; }
+  .families { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .fam .tag { display: inline-block; font-size: 12px; font-weight: 700; color: var(--series-1); border: 1px solid var(--series-1); border-radius: 6px; padding: 0 6px; margin-bottom: 6px; }
+  .fam .emoji { font-size: 26px; display: block; margin-bottom: 4px; }
+  .fam b { display: block; }
+  .fam p { margin: 6px 0 0; color: var(--text-secondary); font-size: 14px; }
+  .fam .eg { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+  .fam.ours { outline: 2px solid var(--series-1); outline-offset: -1px; }
+  .papers { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+  .paper h3 { margin: 0 0 2px; font-size: 16px; }
+  .paper .meta { color: var(--text-muted); font-size: 12px; margin-bottom: 10px; }
+  .paper .row { margin: 8px 0 0; font-size: 14px; color: var(--text-secondary); }
+  .paper .row b { color: var(--text-primary); }
+  .paper .careful { margin-top: 10px; font-size: 13px; color: var(--text-secondary); border-left: 3px solid var(--border); padding-left: 10px; }
+  .bars { display: grid; gap: 8px; margin-top: 12px; }
+  .bar-row { display: grid; grid-template-columns: 170px 1fr 70px; align-items: center; gap: 10px; font-size: 13px; }
+  .bar-row .name { color: var(--text-secondary); text-align: right; }
+  .bar-track { height: 18px; position: relative; }
+  .bar { height: 100%; border-radius: 0 4px 4px 0; min-width: 3px; background: var(--muted-bar); }
+  .bar.ahead { background: var(--series-1); }
+  .bar-row .val { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+  .vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+  .vs .mid { font-weight: 700; color: var(--text-muted); }
+  .callout { background: var(--surface-1); border: 1px solid var(--border); border-left: 4px solid var(--series-1); border-radius: 10px; padding: 16px 18px; }
+  .callout p { margin: 6px 0 0; color: var(--text-secondary); }
+  .plan { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .plan .n { width: 26px; height: 26px; border-radius: 50%; background: var(--series-1); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+  .plan p { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
+  .pill { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); margin-left: 6px; vertical-align: 2px; }
+  ul.qs { margin: 8px 0 0; padding-left: 20px; color: var(--text-secondary); }
+  ul.qs li { margin: 4px 0; }
+  @media (max-width: 560px) {
+    .bar-row { grid-template-columns: 110px 1fr 56px; }
+    .vs { grid-template-columns: 1fr; }
+    .vs .mid { text-align: center; }
+  }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<div class="wrap">
+
+  <nav class="topnav">
+    <a href="#part1">Part 1 · Phase 1 results</a>
+    <a href="#part2">Part 2 · How could an LLM run autoscaling?</a>
+    <a href="#plan">Part 3 · Plan for Nov 21</a>
+  </nav>
+
+  <div id="part1" class="part">Part 1 · Phase 1 results</div>
+  <div class="badge">✓ Phase 1 milestone reached</div>
+  <h1>HPA scaled the app up under load, then back down</h1>
+  <p class="sub">Local kind cluster · FastAPI app · Kubernetes HPA (60% CPU target, 1–8 replicas) · Locust ramp run inside the cluster · 4 Nov 2026</p>
+
+  <div class="tiles">
+    <div class="card tile"><div class="num">1 → 3 → 1</div><div class="lbl">replicas: up under load, back down after</div></div>
+    <div class="card tile"><div class="num">11,918</div><div class="lbl">requests sent by Locust</div></div>
+    <div class="card tile"><div class="num">0</div><div class="lbl">failed requests (0.00%)</div></div>
+    <div class="card tile"><div class="num">6 ms</div><div class="lbl">median response time (p95: 22 ms)</div></div>
+  </div>
+
+  <h2>What's running where</h2>
+  <div class="flow">
+    <div class="node"><b>Your Mac</b><span>kubectl, kind, docker CLI</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>Colima VM</b><span>small Linux VM running Docker</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>kind node</b><span>a Docker container acting as a Kubernetes machine</span></div>
+  </div>
+  <div class="cluster">
+    <div class="cluster-label">Inside the cluster</div>
+    <div class="flow">
+      <div class="node"><b>Locust pod</b><span>fake users hit <code>/work</code></span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Service <code>scale-app</code></b><span>one address, spreads requests across pods</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>App pods (1–8)</b><span>each <code>/work</code> burns a fixed bit of CPU</span></div>
+    </div>
+    <div class="flow" style="margin-top:10px">
+      <div class="node"><b>Metrics server</b><span>reads each pod's CPU every ~15 s</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>HPA</b><span>"keep pods ~60% busy": adds or removes pods</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>Deployment</b><span>creates or deletes the pods</span></div>
+    </div>
+  </div>
+
+  <h2>The run, minute by minute</h2>
+  <p class="sub" style="margin-bottom:14px">Three views of the same 14 minutes. Hover any chart to read exact values. Shaded bands mark the load phases.</p>
+
+  <div class="card chart-card"><div class="chart-title">1 · Load: Locust users</div>
+    <div class="chart-note">What we threw at the app (from the shape in <code>ramp.py</code>).</div>
+    <div id="c-users"></div></div>
+  <div class="card chart-card"><div class="chart-title">2 · Average CPU, as % of each pod's 100m request</div>
+    <div class="chart-note">HPA's input. The dashed line is the 60% target: above it, HPA adds pods.</div>
+    <div id="c-cpu"></div></div>
+  <div class="card chart-card"><div class="chart-title">3 · Replicas</div>
+    <div class="chart-note">HPA's decision. Note the 5-minute wait after load drops before pods are removed.</div>
+    <div id="c-rep"></div></div>
+
+  <details><summary>Show the raw HPA timeline as a table</summary>
+    <table id="tbl"><thead><tr><th>Time</th><th>CPU vs target</th><th>Replicas</th></tr></thead><tbody></tbody></table>
+  </details>
+
+  <h2>Reading the charts</h2>
+  <div class="story">
+    <div class="card step"><div class="n">0–1.5 MIN</div><b>Warm-up</b><p>CPU climbs from 9% past 60% while one pod handles everything.</p></div>
+    <div class="card step"><div class="n">1.8 & 3.3 MIN</div><b>Scale up</b><p>CPU over target → HPA adds a 2nd, then a 3rd pod. The 132% spike is load arriving faster than new pods could start.</p></div>
+    <div class="card step"><div class="n">3.5–6.5 MIN</div><b>Steady</b><p>With 3 pods, CPU sits at 58–66%, right on target. HPA leaves it alone.</p></div>
+    <div class="card step"><div class="n">6.5–11.8 MIN</div><b>Deliberate wait</b><p>Load drops to ~6% CPU but HPA holds 3 pods for its 5-minute stabilization window, so it won't flap if traffic returns.</p></div>
+    <div class="card step"><div class="n">11.8 MIN</div><b>Scale down</b><p>Window over → back to 1 pod. Milestone complete.</p></div>
+  </div>
+
+  <h2>The three traps from setup.md, avoided</h2>
+  <div class="traps">
+    <div class="card trap"><b>1 · No CPU request, no autoscaling</b><p><span class="ok">✓</span> Deployment sets <code>requests.cpu: 100m</code>, so HPA has something to measure a percentage against.</p></div>
+    <div class="card trap"><b>2 · Image only on your laptop</b><p><span class="ok">✓</span> <code>kind load docker-image scale-app:local</code> plus <code>imagePullPolicy: IfNotPresent</code>, so no <code>ErrImagePull</code>.</p></div>
+    <div class="card trap"><b>3 · port-forward hits one pod</b><p><span class="ok">✓</span> Locust runs inside the cluster against <code>http://scale-app</code>, so new pods actually get traffic.</p></div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ===================== PART 2 ===================== -->
+  <div id="part2" class="part">Part 2 · LLM controller research</div>
+  <h1>How could an LLM actually run autoscaling?</h1>
+  <p class="sub">What we found from a literature scan (Nov 2026): 15 papers screened, and the three most relevant read in full.</p>
+
+  <div class="callout">
+    <div class="big-q">In Part 1, HPA followed one rule: "keep CPU near 60%". Our project asks whether an LLM can make <em>better</em> scaling decisions, especially when a human tells it something a CPU graph can't, like <em>"a marketing campaign launches in 90 seconds."</em></div>
+    <p>Before building, we wanted to know: how have other people put an LLM in charge of a system like this?</p>
+  </div>
+
+  <h2>First finding: almost nobody has done this yet</h2>
+  <div class="tiles">
+    <div class="card tile"><div class="num">Most</div><div class="lbl">"LLM + autoscaling" papers are about scaling <b>LLMs</b> (GPU model serving), not using an LLM <b>as</b> the scaler</div></div>
+    <div class="card tile"><div class="num">1</div><div class="lbl">paper we found that runs an LLM controller head-to-head against Kubernetes HPA (SAIR)</div></div>
+    <div class="card tile"><div class="num">0</div><div class="lbl">papers that test an LLM using <b>human operator context</b> against HPA: that's our gap</div></div>
+  </div>
+
+  <h2>Five ways to put an LLM in the loop</h2>
+  <p class="sub" style="margin-bottom:14px">Every design we found fits one of these. Think of autoscaling as driving a car.</p>
+  <div class="families">
+    <div class="card fam ours"><span class="tag">A · ours today</span><span class="emoji">🚗</span><b>The Driver</b>
+      <p>Every 15 s, the LLM looks at the dashboard and says "add 2 pods" or "hold".</p>
+      <div class="eg">Simple and explainable, but an LLM call on every decision.</div></div>
+    <div class="card fam"><span class="tag">B</span><span class="emoji">📓</span><b>Driver with a diary</b>
+      <p>Same, but the prompt includes past decisions and how they turned out, so it learns without retraining.</p>
+      <div class="eg">e.g. SAIR</div></div>
+    <div class="card fam"><span class="tag">C</span><span class="emoji">🧑‍✈️</span><b>Manager of the autopilot</b>
+      <p>HPA keeps driving. Every few minutes the LLM adjusts HPA's settings (target %, min/max).</p>
+      <div class="eg">Safe by design; untested for autoscaling</div></div>
+    <div class="card fam"><span class="tag">D</span><span class="emoji">🌦️</span><b>Weather forecaster</b>
+      <p>The LLM only predicts upcoming traffic; a normal controller scales ahead of it.</p>
+      <div class="eg">e.g. Time-LLM, Chronos</div></div>
+    <div class="card fam"><span class="tag">E</span><span class="emoji">🩺</span><b>Doctor</b>
+      <p>The LLM first diagnoses <em>why</em> things are slow, then picks a fix.</p>
+      <div class="eg">e.g. ORACL</div></div>
+  </div>
+
+  <h2>The three papers that matter most</h2>
+  <div class="papers">
+    <div class="card paper">
+      <h3>SAIR</h3><div class="meta">NeurIPS 2026 · Driver with a diary (B)</div>
+      <div class="row"><b>What:</b> an off-the-shelf LLM decides scaling every 30 s. Its prompt includes ~15 past decisions and their outcomes.</div>
+      <div class="row"><b>Result:</b> beat HPA on tail latency by 6–50% on a real cluster. Removing the diary made it ~17% worse.</div>
+      <div class="row"><b>Why it matters to us:</b> the closest setup to ours, and its safety limits (max ±2 pods, cooldowns) match our guardrails almost exactly.</div>
+      <div class="careful">⚠️ Doesn't say which LLM it used. The "97% cheaper" headline is against its weakest baseline.</div>
+    </div>
+    <div class="card paper">
+      <h3>ORACL</h3><div class="meta">Univ. of Melbourne, 2026 · Doctor (E)</div>
+      <div class="row"><b>What:</b> turns metrics into words ("CPU: High"), asks the LLM to find the root cause, then choose a fix.</div>
+      <div class="row"><b>Result:</b> lower latency than simple threshold scalers on a microservice shop app.</div>
+      <div class="row"><b>Why it matters to us:</b> two ideas to borrow: <b>Low/Med/High labels</b> as input, and <b>"diagnose before you act"</b>.</div>
+      <div class="careful">⚠️ Uses a specially trained LLM (not like ours), never tested against real HPA, and some abstract numbers aren't backed up in the paper.</div>
+    </div>
+    <div class="card paper">
+      <h3>Scaling under long startup delays</h3><div class="meta">CloudCom 2026 · no LLM in the controller</div>
+      <div class="row"><b>What:</b> new pods take time to start, so a controller that only reacts is always late. Predict traffic <em>one startup-delay ahead</em> and scale early.</div>
+      <div class="row"><b>Result:</b> that one idea cut slow responses about 14×.</div>
+      <div class="row"><b>Why it matters to us:</b> our simulator has the same startup delay (2 ticks). See below. This changes how we should test.</div>
+      <div class="careful">⚠️ Simulation plus a small hardware test; "scaling back down" is left unsolved.</div>
+    </div>
+  </div>
+
+  <h2>Biggest insight: looking ahead beats being clever</h2>
+  <div class="card">
+    <div class="chart-title">% of requests that were too slow (missed their response-time target)</div>
+    <div class="chart-note">From the startup-delay paper's simulation. Lower is better. Hover a bar for its average pod count.</div>
+    <div class="legend"><span><i style="background:var(--muted-bar)"></i>Reacts to current load</span><span><i style="background:var(--series-1)"></i>Looks ahead by the startup delay</span></div>
+    <div class="bars" id="bars"></div>
+    <details><summary>Show as a table</summary>
+      <table id="bars-tbl"><thead><tr><th>Controller</th><th>Too-slow requests</th><th>Avg. pods</th></tr></thead><tbody></tbody></table>
+    </details>
+  </div>
+
+  <h2 style="margin-top:28px">Why this matters for our experiment</h2>
+  <div class="vs">
+    <div class="card"><b>If the LLM beats HPA on a "campaign in 90 s" spike…</b><p style="margin:6px 0 0;color:var(--text-secondary);font-size:14px">…was it because it <b>understood the message</b>?</p></div>
+    <div class="mid">or</div>
+    <div class="card"><b>…was it just because it scaled early?</b><p style="margin:6px 0 0;color:var(--text-secondary);font-size:14px">A 20-line "look ahead" controller might do the same with no LLM at all.</p></div>
+  </div>
+  <div class="callout" style="margin-top:12px"><b>So we should add a simple non-LLM "look-ahead" baseline</b>
+    <p>Then if the LLM still wins, we can honestly say the <em>language understanding</em> helped, not just the timing. This keeps our comparison fair.</p></div>
+
+  <h2>On "what format do we give the LLM?"</h2>
+  <div class="traps">
+    <div class="card trap"><b>No one agrees</b><p>Whether JSON, a table or plain sentences works best depends on the model. No study tested it for control.</p></div>
+    <div class="card trap"><b>Numbers in sentences hurt</b><p>Tables or JSON tend to beat numbers buried in prose, and the format changes token count, so speed and cost too.</p></div>
+    <div class="card trap"><b>So we test it ourselves</b><p>Same controller, three formats (JSON / table / Low-Med-High words). A cheap experiment with a real result.</p></div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ===================== PART 3 ===================== -->
+  <div id="plan" class="part">Part 3 · Plan for Nov 21</div>
+  <h1>What we propose to test</h1>
+  <p class="sub">Everything below runs in our existing simulator, and the LLM still only sees normal metrics (no peeking at the scenario).</p>
+  <div class="plan">
+    <div class="card"><div class="n">1</div><b>The Driver <span class="pill">built</span></b><p>Our current LLM controller. The reference point.</p></div>
+    <div class="card"><div class="n">2</div><b>Look-ahead baseline <span class="pill">new · no LLM</span></b><p>Predicts 2 ticks ahead and scales early. Keeps the comparison fair.</p></div>
+    <div class="card"><div class="n">3</div><b>Manager of the autopilot</b><p>The LLM tunes HPA's settings every few minutes. Safe, cheap, and nobody has published it.</p></div>
+    <div class="card"><div class="n">4</div><b>Input-format test</b><p>JSON vs table vs Low/Med/High words. Answers "what format should the controller get?"</p></div>
+  </div>
+  <p style="color:var(--text-secondary);font-size:14px;margin-top:12px"><b>Stretch:</b> Driver with a diary (SAIR-style), feeding past decisions and outcomes back into the prompt.</p>
+
+  <h2>Questions for the team</h2>
+  <div class="card">
+    <ul class="qs">
+      <li>How slow can one LLM decision be? (SAIR: 1–2 s, against our 15 s tick)</li>
+      <li>Should we score the LLM's cost (number of API calls) as well as performance?</li>
+      <li>Who builds the look-ahead baseline: LLM track or HPA track?</li>
+    </ul>
+  </div>
+
+  <footer>Research sources: <a href="https://arxiv.org/abs/2601.22397">SAIR (arXiv 2601.22397)</a> · <a href="https://arxiv.org/abs/2602.05292">ORACL (arXiv 2602.05292)</a> · <a href="https://arxiv.org/abs/2609.20874">Predictive autoscaling under long startup delays (arXiv 2609.20874)</a>. Full notes and the other 12 papers: <code>docs/research/llm_controller_architectures.md</code>. Numbers are the authors' own claims.<br><br>Phase 1 source data: <code>cloud-env/results/hpa_timeline.txt</code> (sampled every ~20 s) and <code>cloud-env/results/locust.log</code>. The user curve is the planned shape from <code>ramp.py</code>, aligned to the HPA timeline to within a few seconds.</footer>
+</div>
+</div>
+
+<script>
+const hpa = [
+  [0,null,1],[21,9,1],[43,49,1],[64,61,1],[86,65,1],[108,73,2],[132,77,2],[154,132,2],[175,70,2],
+  [196,70,3],[217,60,3],[237,58,3],[257,61,3],[278,60,3],[298,66,3],[319,63,3],[339,59,3],[359,64,3],
+  [380,61,3],[400,20,3],[420,12,3],[441,11,3],[462,6,3],[482,6,3],[503,6,3],[523,6,3],[543,6,3],
+  [564,7,3],[584,6,3],[604,6,3],[625,6,3],[645,6,3],[666,7,3],[686,6,3],[706,6,1],[727,7,1],
+  [747,7,1],[768,7,1],[788,8,1],[808,8,1],[829,7,1],[849,8,1]
+];
+// Planned Locust shape from ramp.py: users ramp at 1/s to each stage's target.
+function usersAt(t) {
+  const stages = [[60,10,1],[120,20,1],[180,30,1],[360,30,1],[420,2,5]];
+  let u = 0, prevEnd = 0;
+  for (const [end, target, rate] of stages) {
+    if (t <= prevEnd) break;
+    const dt = Math.min(t, end) - prevEnd;
+    u = target >= u ? Math.min(target, u + rate * dt) : Math.max(target, u - rate * dt);
+    prevEnd = end;
+  }
+  return t > 420 ? 0 : u;
+}
+const users = [];
+for (let t = 0; t <= 850; t += 5) users.push([t, usersAt(t)]);
+
+const phases = [[0,180,"ramp up"],[180,360,"hold"],[360,420,"drop"],[420,706,"HPA waits 5 min"],[706,850,"idle"]];
+const fmtT = s => `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`;
+
+function chart(el, pts, opts) {
+  const W = 900, H = opts.h || 170, L = 40, R = 12, T = 12, B = 26;
+  const X0 = 0, X1 = 850, ymax = opts.ymax;
+  const x = v => L + (v - X0) / (X1 - X0) * (W - L - R);
+  const y = v => T + (1 - v / ymax) * (H - T - B);
+  const ns = "http://www.w3.org/2000/svg";
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="${ns}" role="img" aria-label="${opts.label}">`;
+  phases.forEach(([a,b,name], i) => {
+    if (i % 2 === 0) s += `<rect x="${x(a)}" y="${T}" width="${x(b)-x(a)}" height="${H-T-B}" fill="var(--band)"/>`;
+    if (opts.phaseLabels) s += `<text x="${(x(a)+x(b))/2}" y="${T+12}" text-anchor="middle" fill="var(--text-muted)" font-size="11">${name}</text>`;
+  });
+  s += `<g class="axis">`;
+  opts.yticks.forEach(v => {
+    s += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`;
+    s += `<text x="${L-8}" y="${y(v)+4}" text-anchor="end">${v}${opts.unit||""}</text>`;
+  });
+  for (let m = 0; m <= 14; m += 2) s += `<text x="${x(m*60)}" y="${H-6}" text-anchor="middle">${m} min</text>`;
+  s += `</g>`;
+  if (opts.ref != null) {
+    s += `<line x1="${L}" x2="${W-R}" y1="${y(opts.ref)}" y2="${y(opts.ref)}" stroke="var(--ref)" stroke-dasharray="5 4" stroke-width="1.5"/>`;
+    s += `<text x="${W-R}" y="${y(opts.ref)-6}" text-anchor="end" fill="var(--text-secondary)" font-size="12">target ${opts.ref}%</text>`;
+  }
+  const valid = pts.filter(p => p[1] != null);
+  let d = "";
+  valid.forEach((p, i) => {
+    if (i === 0) d += `M${x(p[0])},${y(p[1])}`;
+    else if (opts.step) d += `H${x(p[0])}V${y(p[1])}`;
+    else d += `L${x(p[0])},${y(p[1])}`;
+  });
+  if (opts.step) d += `H${x(X1)}`;
+  const last = opts.step ? X1 : valid[valid.length-1][0];
+  s += `<path d="${d}V${y(0)}H${x(valid[0][0])}Z" fill="var(--series-1-fill)"/>`;
+  s += `<path d="${d}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>`;
+  (opts.labels || []).forEach(([t, v, txt]) => {
+    s += `<circle cx="${x(t)}" cy="${y(v)}" r="4" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2"/>`;
+    s += `<text x="${x(t)+8}" y="${y(v)-8}" fill="var(--text-primary)" font-size="12" font-weight="600">${txt}</text>`;
+  });
+  s += `<line class="xh" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="var(--text-muted)" stroke-width="1" visibility="hidden"/>`;
+  s += `<circle class="dot" r="5" fill="var(--series-1)" stroke="var(--surface-1)" stroke-width="2" visibility="hidden"/>`;
+  s += `<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" class="hit"/>`;
+  s += `</svg><div class="tip"></div>`;
+  el.innerHTML = s;
+
+  const svg = el.querySelector("svg"), tip = el.querySelector(".tip");
+  const xh = svg.querySelector(".xh"), dot = svg.querySelector(".dot");
+  svg.querySelector(".hit").addEventListener("mousemove", e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * W;
+    const t = X0 + (sx - L) / (W - L - R) * (X1 - X0);
+    let best = valid[0];
+    if (opts.step) { for (const p of valid) if (p[0] <= t) best = p; }
+    else for (const p of valid) if (Math.abs(p[0]-t) < Math.abs(best[0]-t)) best = p;
+    const px = opts.step ? Math.max(x(best[0]), Math.min(sx, W-R)) : x(best[0]);
+    xh.setAttribute("x1", px); xh.setAttribute("x2", px); xh.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", px); dot.setAttribute("cy", y(best[1])); dot.setAttribute("visibility", "visible");
+    const shownT = opts.step ? Math.max(0, t) : best[0];
+    tip.innerHTML = `<div class="t">t = ${fmtT(shownT)}</div><b>${opts.fmt(best[1])}</b>`;
+    tip.style.display = "block";
+    const left = (px / W) * r.width + (el.offsetLeft) + 12;
+    tip.style.left = Math.min(left, el.offsetLeft + r.width - 150) + "px";
+    tip.style.top = (el.offsetTop + (y(best[1]) / H) * r.height - 50) + "px";
+  });
+  svg.querySelector(".hit").addEventListener("mouseleave", () => {
+    tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden");
+  });
+}
+
+chart(document.getElementById("c-users"), users, {
+  ymax: 35, yticks: [0,10,20,30], label: "Locust users over time", phaseLabels: true,
+  fmt: v => `${Math.round(v)} users`,
+  labels: [[200, 30, "peak: 30 users"]]
+});
+chart(document.getElementById("c-cpu"), hpa.map(p => [p[0], p[1]]), {
+  ymax: 140, yticks: [0,30,60,90,120], unit: "%", ref: 60, label: "Average CPU utilization over time",
+  fmt: v => `${v}% CPU`,
+  labels: [[154, 132, "132% spike"]]
+});
+chart(document.getElementById("c-rep"), hpa.map(p => [p[0], p[2]]), {
+  ymax: 4, yticks: [0,1,2,3,4], step: true, h: 150, label: "Replica count over time",
+  fmt: v => `${v} replica${v === 1 ? "" : "s"}`,
+  labels: [[108, 2, "+1"], [196, 3, "+1 → 3"], [706, 1, "back to 1"]]
+});
+
+// Startup-delay paper (arXiv 2609.20874), Table I simulation results.
+const ctrl = [
+  ["HPA-style (reacts to request rate)", 52.5, 2.1, false],
+  ["Reacts to token load", 20.9, 4.8, false],
+  ["Reacts to queue / memory", 19.0, 6.0, false],
+  ["Looks ahead (EWMA)", 1.44, 9.9, true],
+  ["Looks ahead + safety margin", 0.54, 9.5, true],
+];
+const barsEl = document.getElementById("bars");
+const btb = document.querySelector("#bars-tbl tbody");
+ctrl.forEach(([name, v, pods, ahead]) => {
+  barsEl.insertAdjacentHTML("beforeend",
+    `<div class="bar-row" title="${name}: ${v}% too slow, ~${pods} pods on average">
+       <div class="name">${name}</div>
+       <div class="bar-track"><div class="bar${ahead ? " ahead" : ""}" style="width:${v / 55 * 100}%"></div></div>
+       <div class="val">${v}%</div></div>`);
+  btb.insertAdjacentHTML("beforeend", `<tr><td>${name}</td><td>${v}%</td><td>${pods}</td></tr>`);
+});
+
+const tb = document.querySelector("#tbl tbody");
+hpa.forEach(([t, c, r]) => {
+  tb.insertAdjacentHTML("beforeend", `<tr><td>${fmtT(t)}</td><td>${c == null ? "unknown" : c + "% / 60%"}</td><td>${r}</td></tr>`);
+});
+</script>
+</body>
+</html>
