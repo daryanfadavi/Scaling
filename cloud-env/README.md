@@ -29,7 +29,7 @@ cloud-env/
 | Pod label (selector) | `app.kubernetes.io/name=scale-app` |
 | Container name | `app` |
 | Image | `scale-app:v1` (built inside Minikube, `imagePullPolicy: IfNotPresent`) |
-| CPU request / limit | `100m` / `500m` |
+| CPU request / limit | `100m` / `100m` (no bursting: an under-provisioned pod saturates and latency rises) |
 | Memory request / limit | `128Mi` / `256Mi` |
 | `WORK_ROUNDS` | `20000` |
 | Replica bounds (all controllers) | 1 to 10 |

@@ -42,8 +42,8 @@ If Prometheus, kubectl or the model call fails, the tick holds (no change) and l
 | Prompt version | `cluster-v1` by default (`controllers/llm/prompt.py`). Variants are chosen with `SCALE_PROMPT` (see below) and the name is logged in the first line of `controller.log` |
 | Goal given to the model | p95 latency under 300 ms, error rate near zero, fewest pods possible |
 
-**What the model is told about the service:** each pod requests 100m CPU and can burst to 500m, CPU %
-is relative to the request (so it can exceed 100), pods take a while to become ready, and metrics are
+**What the model is told about the service:** each pod requests 100m CPU and is limited to 100m, CPU %
+is relative to the request (so 100 means saturated), pods take a while to become ready, and metrics are
 1-minute averages that lag. It is **not** told per-pod capacity (req/s per pod), because that depends on
 the machine (see the calibration note in [keda/README.md](../keda/README.md)); it has to infer it from CPU
 and request rate. It never sees the scenario, the planned load, or the other controllers.

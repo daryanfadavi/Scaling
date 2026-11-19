@@ -29,9 +29,9 @@ service is a bad outcome, and so is paying for pods that are not needed.
 HOW THE SERVICE WORKS
 - Every request does the same fixed amount of CPU work, so request rate and CPU \
 utilization move together.
-- Each pod requests 100m of CPU and may burst up to 500m. "CPU" in the telemetry is CPU \
-used divided by CPU requested, so it can exceed 100% (up to about 500%). Latency stays low \
-while pods have spare CPU and rises steeply once they are saturated.
+- Each pod requests 100m of CPU and is limited to 100m, so it cannot use more. "CPU" in \
+the telemetry is CPU used divided by CPU requested, so 100% means the pods are saturated. \
+Latency stays low while pods have spare CPU and rises steeply as they approach 100%.
 - Requests are spread evenly across the pods that are ready.
 - A new pod serves no traffic until it is ready. Pods that exist but are not ready are \
 counted as "starting". Capacity you request now is not available immediately, so if \

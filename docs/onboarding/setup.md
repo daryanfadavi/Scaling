@@ -80,7 +80,7 @@ add, what the runner does with them, and the fairness rules) is in
 | Namespace / Deployment / Service | `scale` / `scale-app` / `scale-app` (NodePort) |
 | Pod label | `app.kubernetes.io/name=scale-app` |
 | Image | `scale-app:v1` (built locally, never pulled) |
-| CPU request / limit | 100m / 500m |
+| CPU request / limit | 100m / 100m |
 | Memory request / limit | 128Mi / 256Mi |
 | Replica bounds for every controller | 1 to 10 |
 | Prometheus | `kps-prometheus.monitoring.svc:9090` (in cluster) |
