@@ -67,6 +67,8 @@ RESULTS_DIR = REPO_ROOT / "experiments" / "results"
 SIMULATOR_CONFIGS_DIR = REPO_ROOT / "experiments" / "configs"
 # Where we remember a running controller process, so a crashed run can be cleaned up.
 PID_FILE = REPO_ROOT / "experiments" / ".controller.pid"
+# The controller process this runner started, kept so it can be waited on (reaped) when stopped.
+controller_process: subprocess.Popen | None = None
 
 
 def log(message: str) -> None:
@@ -115,13 +117,15 @@ def run_script(script: Path) -> None:
 
 
 def apply_controller(name: str, run_dir: Path) -> None:
+    global controller_process
     plugin_dir = CONTROLLERS_DIR / name
     parts = plugin_parts(plugin_dir)
+    # apply.sh first: it may install what the manifests need (e.g. an operator and its CRD).
+    if parts["apply"]:
+        run_script(plugin_dir / "apply.sh")
     if parts["manifests"]:
         log(f"  kubectl apply -f controllers/{name}/manifests/")
         kubectl("apply", "-f", str(plugin_dir / "manifests"))
-    if parts["apply"]:
-        run_script(plugin_dir / "apply.sh")
     if parts["start"]:
         log_file = open(run_dir / "controller.log", "w")
         process = subprocess.Popen(
@@ -129,6 +133,7 @@ def apply_controller(name: str, run_dir: Path) -> None:
             stdout=log_file, stderr=subprocess.STDOUT,
             start_new_session=True,  # own process group, so stop kills its children too
         )
+        controller_process = process
         PID_FILE.write_text(str(process.pid))
         log(f"  started controller process (pid {process.pid}, log: controller.log)")
         time.sleep(3)
@@ -139,23 +144,72 @@ def apply_controller(name: str, run_dir: Path) -> None:
             )
 
 
+def process_group_exists(pgid: int) -> bool:
+    """True while any process in the group is still running."""
+    if controller_process is not None and controller_process.pid == pgid:
+        controller_process.poll()  # reap the leader if it exited, so it isn't left as a zombie
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # macOS reports EPERM, not ESRCH, for a group whose only member is an unreaped
+        # zombie (e.g. left by a crashed earlier run). Nothing is running in it.
+        return False
+    return True
+
+
 def stop_controller_process() -> None:
     """Stop the background controller process, if one is running."""
+    global controller_process
     if not PID_FILE.exists():
         return
-    pid = int(PID_FILE.read_text())
-    try:
-        os.killpg(pid, signal.SIGTERM)
-        log(f"  sent SIGTERM to controller process group {pid}")
+    pgid = int(PID_FILE.read_text())
+    if not hasattr(os, "killpg"):
+        # Windows has no process groups. taskkill /T stops start.sh and its children.
+        log(f"  stopping controller process tree {pgid}")
+        subprocess.run(["taskkill", "/PID", str(pgid), "/T", "/F"],
+                       check=False, capture_output=True, text=True)
+    elif process_group_exists(pgid):
+        os.killpg(pgid, signal.SIGTERM)
+        log(f"  sent SIGTERM to controller process group {pgid}")
         deadline = time.time() + STOP_TIMEOUT_SECONDS
-        while time.time() < deadline:
-            os.killpg(pid, 0)  # raises once the group is gone
+        while process_group_exists(pgid) and time.time() < deadline:
             time.sleep(1)
-        log("  controller didn't exit in time; sending SIGKILL")
-        os.killpg(pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass  # already gone
+        if process_group_exists(pgid):
+            log("  controller didn't exit in time; sending SIGKILL")
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass  # exited just now
+    if controller_process is not None and controller_process.pid == pgid:
+        try:
+            controller_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        controller_process = None
     PID_FILE.unlink(missing_ok=True)
+
+
+def delete_manifests(directory: Path) -> None:
+    """kubectl delete the manifests, skipping any whose kind isn't installed on the
+    cluster (e.g. a PHPA object when the PHPA operator was never installed): there is
+    nothing of that kind to delete. Any other error still stops the run."""
+    result = subprocess.run(
+        ["kubectl", "--context", KUBE_CONTEXT, "delete", "--ignore-not-found", "-f", str(directory)],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return
+    # kubectl prints "... no matches for kind X ..." then "ensure CRDs are installed first".
+    errors = [line for line in result.stderr.splitlines()
+              if line.strip() and line.strip() != "ensure CRDs are installed first"]
+    missing_kind = [line for line in errors if "no matches for kind" in line]
+    if errors and len(missing_kind) == len(errors):
+        for line in missing_kind:
+            log(f"  skipped (kind not installed): {line.strip()}")
+        return
+    raise RuntimeError(f"kubectl delete -f {directory.relative_to(REPO_ROOT)} failed:\n{result.stderr.strip()}")
 
 
 def remove_controller(name: str) -> None:
@@ -168,7 +222,7 @@ def remove_controller(name: str) -> None:
     if parts["remove"]:
         run_script(plugin_dir / "remove.sh")
     if parts["manifests"]:
-        kubectl("delete", "--ignore-not-found", "-f", str(plugin_dir / "manifests"))
+        delete_manifests(plugin_dir / "manifests")
 
 
 def remove_all_controllers() -> None:
