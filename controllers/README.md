@@ -6,8 +6,13 @@ Each folder here is one autoscaler that `experiments/run_experiment.py` can run:
 |---|---|---|
 | [`hpa/`](hpa/) | Ready | Kubernetes HPA on CPU (60% target, 1 to 10 pods): the baseline |
 | [`keda/`](keda/) | Ready | KEDA on request rate (9 req/s per pod, 1 to 10 pods): the second baseline |
-| [`phpa/`](phpa/) | To build | Predictive Horizontal Pod Autoscaler |
-| [`llm/`](llm/) | To build | Our LLM-based controller, running as a separate process |
+| [`phpa/`](phpa/) | Ready | Predictive Horizontal Pod Autoscaler |
+| [`llm/`](llm/) | Ready | LLM controller on current measurements. The other `llm_*` folders are the same program with the mode fixed by `start.sh`, so the results folder name is the mode |
+| [`llm_context/`](llm_context/) | Ready | `llm` plus operator notes from `SCALE_OPERATOR_NOTES` |
+| [`llm_history/`](llm_history/) | Ready | `llm` plus recent trends |
+| [`llm_predictive/`](llm_predictive/) | Ready | `llm` plus a capped request-rate forecast |
+| [`llm_predictive_context/`](llm_predictive_context/) | Ready | forecast plus operator notes |
+| [`llm_fake/`](llm_fake/) | Ready | `llm` with the stand-in model, no API key |
 
 Not to be confused with [`controller/`](../controller/) (singular). That folder holds the
 Camp QMIND **simulator** controllers and isn't used here.

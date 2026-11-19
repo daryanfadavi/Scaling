@@ -5,6 +5,7 @@ Examples:
     python -m experiments.run --controller hpa --scenario ramp --seed 3
     python -m experiments.run --controller llm_context --scenario spike_with_warning --repeats 3
     python -m experiments.run --controller human --scenario spike_with_warning --label alice
+    python -m experiments.run --controller llm --scenario spike --fake-llm
     python -m experiments.run --controller llm_context --scenario spike_with_warning \
         --provider openrouter --model meta-llama/llama-3.3-70b-instruct --openrouter-upstream Fireworks
 
@@ -36,6 +37,7 @@ from controller.hpa_baseline import HPAController
 from controller.human import HumanController, QuitGame
 from controller.keda_baseline import KEDAController
 from controller.llm_client import LLMClient
+from controller.fake_llm_client import FakeLLMClient
 from controller.llm_controller import LLMController
 from controller.openrouter_client import OpenRouterClient, parse_upstream
 from controller.scheduled_baseline import ScheduledController, parse_schedule
@@ -68,6 +70,8 @@ def resolve_scenario(name_or_path: str) -> Scenario:
 
 def make_llm_client(args: argparse.Namespace, repeat_index: int) -> LLMClient:
     """Build the API client for the LLM controllers, for the chosen --provider."""
+    if args.fake_llm:
+        return FakeLLMClient()
     if args.provider == "openrouter":
         client = OpenRouterClient(
             model=args.model,
@@ -96,11 +100,12 @@ def default_label(controller: Controller) -> str:
     Normally the controller's name. OpenRouter runs add the model, so trying a
     second model doesn't overwrite the first one's results (or the Anthropic run's).
     """
-    if (
-        isinstance(controller, LLMController)
-        and controller.client.provider_name == "openrouter"
-    ):
-        return f"{controller.name}-{controller.client.model}"
+    if isinstance(controller, LLMController):
+        provider = getattr(controller.client, "provider_name", "")
+        if provider == "openrouter":
+            return f"{controller.name}-{controller.client.model}"
+        if provider == "fake":
+            return f"{controller.name}-fake"
     return controller.name
 
 
@@ -191,6 +196,11 @@ def main(argv: list[str] | None = None) -> int:
         help="LLM: only replay cached responses, no API calls",
     )
     parser.add_argument(
+        "--fake-llm",
+        action="store_true",
+        help="LLM: heuristic JSON replies, no API key (parse + guardrail test)",
+    )
+    parser.add_argument(
         "--provider",
         choices=PROVIDERS,
         default="anthropic",
@@ -235,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
         help="log every guardrail clamp and LLM detail",
     )
     args = parser.parse_args(argv)
+    if args.fake_llm and args.controller not in ("llm", "llm_context"):
+        raise SystemExit("--fake-llm only applies to --controller llm or llm_context")
 
     logging.basicConfig(
         level=logging.INFO if args.verbose else logging.WARNING,

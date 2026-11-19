@@ -4,6 +4,7 @@ No cluster needed: Prometheus replies are faked."""
 import csv
 import importlib.util
 import math
+import os
 from pathlib import Path
 
 import pytest
@@ -82,9 +83,13 @@ def test_metrics_csv_writes_missing_as_empty_cell(tmp_path):
     assert math.isclose(float(written[0]["replicas_ready"]), 1.2346)
 
 
-def test_plugin_without_parts_counts_as_not_implemented():
+def test_plugin_without_parts_counts_as_not_implemented(tmp_path):
     runner = load_runner()
-    assert not any(runner.plugin_parts(REPO_ROOT / "controllers" / "phpa").values())
+    empty = tmp_path / "readme_only"
+    empty.mkdir()
+    assert not any(runner.plugin_parts(empty).values())
+    phpa = runner.plugin_parts(REPO_ROOT / "controllers" / "phpa")
+    assert phpa["apply"] and phpa["manifests"] and phpa["remove"]
     assert runner.plugin_parts(REPO_ROOT / "controllers" / "hpa")["manifests"]
     assert runner.plugin_parts(REPO_ROOT / "controllers" / "keda")["manifests"]
 
@@ -124,13 +129,19 @@ def test_stop_controller_process_stops_and_reaps_the_group(tmp_path, monkeypatch
     monkeypatch.setattr(runner, "CONTROLLERS_DIR", tmp_path / "controllers")
     monkeypatch.setattr(runner, "REPO_ROOT", tmp_path)
     runner.apply_controller("fake", tmp_path)
-    pgid = runner.controller_process.pid
+    process = runner.controller_process
+    pgid = process.pid
 
     runner.stop_controller_process()  # used to raise PermissionError on macOS
 
     assert not runner.PID_FILE.exists()
     assert runner.controller_process is None
-    assert not runner.process_group_exists(pgid)
+    if hasattr(os, "killpg"):
+        assert not runner.process_group_exists(pgid)
+    else:
+        # Windows stops the tree with taskkill. There is no process group to query.
+        process.wait(timeout=5)
+        assert process.returncode is not None
 
 
 def test_stale_pid_file_is_cleaned_up(tmp_path, monkeypatch):

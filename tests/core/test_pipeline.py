@@ -116,6 +116,28 @@ def test_stub_controller_gives_friendly_error(tmp_path, capsys):
     assert not any(tmp_path.rglob("*.json"))
 
 
+def test_fake_llm_run_needs_no_api_key(tmp_path):
+    code = run.main(
+        [
+            "--controller",
+            "llm",
+            "--scenario",
+            "spike",
+            "--fake-llm",
+            "--results-dir",
+            str(tmp_path),
+            "--no-plot",
+        ]
+    )
+    assert code == 0
+    run_dir = tmp_path / "spike" / "llm-fake"
+    df = pd.read_csv(run_dir / "seed0_rep0.csv")
+    assert len(df) == 80
+    summary = json.loads((run_dir / "seed0_rep0.json").read_text())
+    assert summary["provider"] == "fake"
+    assert summary["metrics"]["invalid_decisions"] == 0
+
+
 # ------------------------------------------------------------ --provider
 
 
@@ -134,6 +156,7 @@ def llm_args(tmp_path, **overrides):
         openrouter_upstream=None,
         cache_dir=tmp_path,
         offline=True,
+        fake_llm=False,
     )
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -142,6 +165,9 @@ def llm_args(tmp_path, **overrides):
 def test_make_llm_client_picks_the_provider(tmp_path, no_env):
     default = run.make_llm_client(llm_args(tmp_path), repeat_index=0)
     assert type(default) is LLMClient and default.provider_name == "anthropic"
+
+    fake = run.make_llm_client(llm_args(tmp_path, fake_llm=True), repeat_index=0)
+    assert fake.provider_name == "fake"
 
     client = run.make_llm_client(
         llm_args(
@@ -175,6 +201,9 @@ def test_default_label_adds_the_model_only_for_openrouter(tmp_path, no_env):
     assert openrouter_run.name == "llm_context"  # the controller itself is unchanged
     assert run.safe_label(run.default_label(openrouter_run)) == "llm_context-vendor_model"
     assert run.default_label(StaticController(replicas=2)) == "static2"
+
+    fake_run = LLMController(run.make_llm_client(llm_args(tmp_path, fake_llm=True), 0))
+    assert run.default_label(fake_run) == "llm-fake"
 
 
 def test_summary_records_provider(tmp_path):

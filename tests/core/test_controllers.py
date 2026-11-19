@@ -3,6 +3,8 @@
 import pytest
 
 import controller.llm_controller as llm_mod
+from pathlib import Path
+
 from controller.human import HumanController, QuitGame, parse_move
 from controller.llm_client import LLMResponse
 from controller.llm_controller import LLMController, ParsedAction, action_to_target
@@ -128,3 +130,10 @@ def test_llm_call_failure_falls_back_to_no_change(stubbed):
 )
 def test_action_to_target(action, amount, expected):
     assert action_to_target(ParsedAction(action, amount), current_total=5) == expected
+
+
+def test_llm_controller_does_not_import_kubectl():
+    text = Path("controller/llm_controller.py").read_text(encoding="utf-8")
+    assert "kubectl" not in text
+    assert "kubernetes" not in text.lower()
+
