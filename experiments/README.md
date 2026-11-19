@@ -34,6 +34,7 @@ python experiments/run_experiment.py --controller <name> --scenario <name> \
 | `--controller` | required | Folder under [`controllers/`](../controllers/) (`hpa`, `keda`, `phpa`, `llm`) |
 | `--scenario` | required | File under [`scenarios/`](scenarios/), without `.py` (e.g. `gradual_ramp`) |
 | `--repeat` | 1 | Run repeats 1..N. Existing repeat folders are skipped, never overwritten. |
+| `--only-repeat` | | Run only repeat N (used by `run_batch.py`) |
 | `--duration` | 600 | Load test length in seconds |
 | `--initial-replicas` | 1 | Pods at the start of each run |
 
@@ -44,8 +45,11 @@ Example: `python experiments/run_experiment.py --controller hpa --scenario gradu
 1. **Reset:** stop and remove every controller (every plugin's remove steps, plus any HPA or KEDA
    ScaledObject left in namespace `scale`), scale `scale-app` to `--initial-replicas`, and wait until
    exactly that many pods are ready and none are starting or terminating.
-2. **Apply** the controller's plugin (`manifests/`, `apply.sh`, then `start.sh` in the background).
-3. **Settle:** wait until all pods are ready, then 60 s more.
+2. **Apply** the controller's plugin (`apply.sh`, `manifests/`, then `start.sh` in the background).
+3. **Settle:** wait until all pods are ready, then 60 s more. If the controller scaled the idle app
+   away from `--initial-replicas` in that time, it's removed and steps 1–3 start over (up to 5
+   attempts, recorded as `setup_attempts` in `metadata.json`), so every controller starts the load
+   test at the same pod count.
 4. **Load test:** Locust runs the scenario headless for `--duration` seconds against the app's
    NodePort (through `minikube service`, which spreads load across all pods).
 5. **Export:** after 30 s (for the last Prometheus scrape), one telemetry snapshot per 15 s for the
@@ -56,6 +60,13 @@ Example: `python experiments/run_experiment.py --controller hpa --scenario gradu
 The fixed settings (settle time, replica bounds, kube context) are constants at the top of
 `run_experiment.py`. If a run fails, its partial folder is renamed `repeat_N_failed_<time>` so a rerun
 redoes it.
+
+### Running the whole showcase batch
+
+`python experiments/run_batch.py --dry-run` prints the plan (every controller × `daily_wave`,
+`random_bursts`, `busy_day`, two repeats, interleaved) and the estimated finish time; drop
+`--dry-run` to run it, `--resume` to continue after a stop. See the docstring at the top of
+`run_batch.py` for the LLM health check (runs where most model calls failed are set aside as BAD).
 
 ### Output
 

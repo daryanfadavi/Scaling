@@ -58,6 +58,7 @@ MAX_REPLICAS = 10
 SETTLE_SECONDS = 60          # step 3: quiet time after pods are ready
 EXPORT_DELAY_SECONDS = 30    # step 5: let Prometheus scrape the last interval first
 DEFAULT_DURATION_S = 600
+SETUP_ATTEMPTS = 5           # tries to get the app to start the load test at initial_replicas
 STOP_TIMEOUT_SECONDS = 20    # how long a controller process gets to exit on SIGTERM
 # ------------------------------------------------------------------------------
 
@@ -422,14 +423,27 @@ def run_once(args, repeat: int, run_dir: Path) -> None:
 
     tunnel = None
     try:
-        reset_app(args.initial_replicas)
+        # Steps 1-3, repeated if the controller scaled the idle app during the settle:
+        # every controller must start the load test at exactly initial_replicas.
+        for setup_attempt in range(1, SETUP_ATTEMPTS + 1):
+            reset_app(args.initial_replicas)
 
-        log(f"Step 2: apply controller '{args.controller}'")
-        apply_controller(args.controller, run_dir)
+            log(f"Step 2: apply controller '{args.controller}'")
+            apply_controller(args.controller, run_dir)
 
-        log(f"Step 3: settle (all pods ready, then {SETTLE_SECONDS}s)")
-        wait_until_stable(expected=None)
-        time.sleep(SETTLE_SECONDS)
+            log(f"Step 3: settle (all pods ready, then {SETTLE_SECONDS}s)")
+            wait_until_stable(expected=None)
+            time.sleep(SETTLE_SECONDS)
+            pods = wait_until_stable(expected=None)
+            if pods == args.initial_replicas:
+                break
+            log(f"  the controller scaled the idle app to {pods} pods during the settle "
+                f"(attempt {setup_attempt} of {SETUP_ATTEMPTS}); removing it and starting over")
+            remove_controller(args.controller)
+        else:
+            raise RuntimeError(
+                f"after {SETUP_ATTEMPTS} attempts the app still wasn't at {args.initial_replicas} "
+                f"pod(s) when the load test was due to start")
 
         log("Step 4: load test")
         url, tunnel = open_app_url()
@@ -465,6 +479,7 @@ def run_once(args, repeat: int, run_dir: Path) -> None:
         "duration_s": args.duration,
         "initial_replicas": args.initial_replicas,
         "settle_s": SETTLE_SECONDS,
+        "setup_attempts": setup_attempt,
         "replica_bounds": [MIN_REPLICAS, MAX_REPLICAS],
         "locust_exit_code": locust_exit_code,
         "telemetry": {"interval_s": INTERVAL_SECONDS, "queries": QUERIES},
@@ -517,6 +532,8 @@ def main() -> None:
     parser.add_argument("--controller", required=True, help="folder name under controllers/")
     parser.add_argument("--scenario", required=True, help="file name (no .py) under experiments/scenarios/")
     parser.add_argument("--repeat", type=int, default=1, help="number of repeats (default 1)")
+    parser.add_argument("--only-repeat", type=int, metavar="N",
+                        help="run only repeat N (used by run_batch.py to interleave repeats)")
     parser.add_argument("--duration", type=int, default=DEFAULT_DURATION_S,
                         help=f"load test length in seconds (default {DEFAULT_DURATION_S})")
     parser.add_argument("--initial-replicas", type=int, default=1,
@@ -525,7 +542,8 @@ def main() -> None:
     check_inputs(args)
 
     base = RESULTS_DIR / args.scenario / args.controller
-    for repeat in range(1, args.repeat + 1):
+    repeats = [args.only_repeat] if args.only_repeat else range(1, args.repeat + 1)
+    for repeat in repeats:
         run_dir = base / f"repeat_{repeat}"
         if run_dir.exists():
             log(f"skipping repeat {repeat}: {run_dir.relative_to(REPO_ROOT)} already exists")
