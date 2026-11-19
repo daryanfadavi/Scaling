@@ -54,7 +54,7 @@ starts. At each timestamp *t*:
 | `replicas_desired` | pods | Replicas the Deployment asks for (what the controller set) |
 | `replicas_ready` | pods | Pods passing their readiness probe (receiving traffic) |
 | `replicas_starting` | pods | Pods that exist but aren't ready yet |
-| `cpu_utilization_pct` | % of request | CPU used / CPU requested, over the app's running pods. The limit equals the request (100m), so 100 means saturated. (Before the change to the limit it was 500m and this could reach about 500.) |
+| `cpu_utilization_pct` | % of request | CPU used / CPU requested, over the app's running pods. **Can exceed 100**: the limit (200m) is 2x the request (100m), so about 200 means saturated. (Before the change to the limit it was 500m and this could reach about 500.) |
 | `request_rate_rps` | req/s | Requests to `/work`, all pods together |
 | `latency_p50_ms` | ms | Median server-side latency of `/work` |
 | `latency_p95_ms` | ms | 95th percentile server-side latency of `/work` |

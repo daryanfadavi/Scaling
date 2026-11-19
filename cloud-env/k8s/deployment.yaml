@@ -37,7 +37,7 @@ spec:
               cpu: 100m
               memory: 128Mi
             limits:
-              cpu: 100m   # = the request: no bursting, so a pod saturates when under-provisioned
+              cpu: 200m   # 2x the request: little room to burst, so an under-provisioned pod saturates
               memory: 256Mi
           # No traffic until the pod answers: the real startup delay.
           readinessProbe:
