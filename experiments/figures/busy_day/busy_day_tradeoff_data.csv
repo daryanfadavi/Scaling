@@ -1,0 +1,9 @@
+scenario,controller,repeat,pod_minutes,mean_p95_after_warmup_ms,max_p95_after_warmup_ms,sla_violations_incl_warmup,sla_violations_excl_warmup,peak_pods,mean_pods,scale_events,flaps,p95_max_ms,error_rate_max
+busy_day,hpa,1,111.25,24.0,68.6,0,0,9.0,7.3,6,1,291.7,0.0
+busy_day,hpa,2,108.0,29.0,105.3,3,0,9.0,7.08,6,1,590.0,0.0
+busy_day,keda,1,91.5,42.3,143.1,1,0,8.0,6.0,7,1,522.5,0.0
+busy_day,keda,2,92.5,39.2,175.9,3,0,8.0,6.07,8,1,598.8,0.0
+busy_day,llm,1,80.5,88.6,226.1,2,0,7.0,5.28,6,1,679.2,0.0
+busy_day,llm,2,71.25,47.2,97.9,2,0,6.0,4.67,5,1,479.5,0.0
+busy_day,phpa,1,136.25,21.0,73.4,0,0,10.0,8.93,8,1,265.2,0.0
+busy_day,phpa,2,136.5,21.5,89.4,1,0,10.0,8.95,8,1,351.0,0.0
